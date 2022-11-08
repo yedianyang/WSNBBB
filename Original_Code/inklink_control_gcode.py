@@ -1,18 +1,50 @@
-#!/usr/bin/python
+import serial
+import time
+from datetime import datetime
+
 import sys
 import usb.core
 import usb.util
-import time
-# decimal vendor and product values
-#dev = usb.core.find(idVendor=1118, idProduct=1917)
-# or, uncomment the next line to search instead by the hexidecimal equivalent
+
+
+
+def translate(value, leftMin, leftMax, rightMin, rightMax):
+    # Figure out how 'wide' each range is
+    leftSpan = leftMax - leftMin
+    rightSpan = rightMax - rightMin
+
+    # Convert the left range into a 0-1 range (float)
+    valueScaled = float(value - leftMin) / float(leftSpan)
+
+    # Convert the 0-1 range into a value in the right range.
+    return rightMin + (valueScaled * rightSpan)
+
+
+def command(ser, command):
+  start_time = datetime.now()
+  ser.write(str.encode(command)) 
+  #time.sleep(1)
+
+  while True:
+    line = ser.readline()
+    print(line)
+
+    if line == b'ok\n':
+      break
+
+ser = serial.Serial('/dev/ttyACM0', 115200) #Port definition
+time.sleep(0.1)
+ser.close()
+
+
 dev = usb.core.find(idVendor=0x056A, idProduct=0x0221)
+
+#All the inklink data feeding data
 # first endpoint
 interface = 0
+#usb.util.release_interface(dev, interface)
+
 endpoint = dev[0][(0,0)][0]
-
-usb.util.release_interface(dev, interface)
-
 
 print ("ENDPOINT"+str(endpoint.bEndpointAddress))
 print("Break point 1")
@@ -59,25 +91,65 @@ print("Break point 4")
 # thanks to http://stackoverflow.com/questions/8218683/pyusb-cannot-set-configurati
 collected = 0
 attempts = 50
-start = time.time()
+
+x_tar = 0 #next target x location. getting from svg file
+y_tar = 0 #next target y location. getting from svg file
+x_pre = 960 #default x location
+y_pre = 960 #default y location
+delta_x = 0 #change of the x location
+delta_y = 0 #change of the y location
+x_current = 0
+y_current = 0
+
+ser.open()
+
+i=0
 while (collected < attempts or 1) :
-    
     try:
         data = dev.read(endpoint.bEndpointAddress,endpoint.wMaxPacketSize)
         collected += 1
         x=data[1]+data[2]*256
         y=data[3]+data[4]*256
         pressed=data[5]
+        #print ('x:%d\ty:%d\tpressed:%d' % (x,y,pressed))
+        #print 'x:'+x+'\ty:'+y+'\tpressed:'+pressed;
+
+        # 业务代码 start
+        delta_x = x - x_pre
+        delta_y = y - y_pre
+        
+
+        x_pre = x
+        y_pre = y
+
+        print("delta_x:%d",delta_x)
+        
+            
+        tmp_x = translate(x,0,1920,40,210)
+        tmp_y = translate(y,0,1920,40,210)
+
+        #command(ser, "G1  X" + str(delta_x) + " F20000 \r\n") #Y" + str(delta_x) + "
+       
+        command(ser, "G1 X"+str(-0.1*i)+" F20000 \r\n")
+        i += 1
+
+        #ser.close() 
         print ('x:%d\ty:%d\tpressed:%d' % (x,y,pressed))
-#        #print 'x:'+x+'\ty:'+y+'\tpressed:'+pressed;
-        print("Break point 5")
-        print (collected)
-        if(time.time()- start > 1000):
-            break
+        print ('mapped_x:%d\tmapped_y:%d\tpressed:%d' % (tmp_x,tmp_y,pressed))
+        
+        # 业务代码 end
+        #print("Break point 5")
+        print ("Connected:%d index: %d", collected, i)
+
+
+        if(i > 60):
+          #command(ser, "G1 X-138 F20000 \r\n")
+          break
+        
     except usb.core.USBError as e:
         data = None
         if e.args == ('Operation timed out',):
             continue
 # release the device
-usb.util.release_interface(dev, interface)
-
+#usb.util.release_interface(dev, interface)
+ser.close() 
