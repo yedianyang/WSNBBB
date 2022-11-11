@@ -105,9 +105,10 @@ print("break point 4.5")
 ser.close()
 
 
-event = Event()
 
-def readingPenData(x_platform):
+def readingPenData():
+    global x_platform_moveTo
+
     collected = 0
     # attempts = 50
     # while (collected < attempts or 1) :
@@ -123,16 +124,13 @@ def readingPenData(x_platform):
             x_pen = xAxis_Filter.average_filter(x)
             delta_x = x_pen - x_tar
             x_move = float(filter.mapping(delta_x, 0, 985, 0, 100))
-            x_platform = x_platform_current + x_move
+            x_platform_moveTo = x_platform_current + x_move
         
     
             print('x:%d\ty:%d\tpressed:%d' % (x, y, pressed))
             #print 'x:'+x+'\ty:'+y+'\tpressed:'+pressed;
             print("Break point 5")
             print(collected)
-
-            if event.is_set():
-                break
         
         except usb.core.USBError as e:
             data = None
@@ -149,10 +147,9 @@ def move_the_board():
         try:
             #print("In While moveboard")
             #command(ser, "G0 X"+str(x_platform_moveTo)+ " F20000 \r\n")
-            event.set()
             print("X platform moveto: ", x_platform_moveTo)
         except KeyboardInterrupt:
-            event.set()
+            ser.close()
             break
             
 
