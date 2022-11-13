@@ -116,19 +116,21 @@ Y_BOARD = 145   # acctuate size of the sensor detection in mm
 
 
 ser.open()
-command(ser, "G0 X0 Y0 F5000 \r\n")
-command(ser, "G0 X100 Y0 F5000 \r\n")
-command(ser, "G0 X0 Y0 F5000 \r\n")
+command(ser, "G0 X0 F5000 \r\n")
+command(ser, "G0 X100 F5000 \r\n")
+command(ser, "G0 X0 F5000 \r\n")
 command(ser, "M400 \r\n")
 print("break point 4.5")
 
 while (collected < attempts or 1):
     try:
+        time1 = time.time()
         data = dev.read(endpoint.bEndpointAddress, endpoint.wMaxPacketSize)
         collected += 1
         x = data[1]+data[2]*256
         y = data[3]+data[4]*256
         pressed = data[5]
+        time2 = time.time()
         # print("data list" , data)
         # print ('x:%d\ty:%d\tpressed:%d' % (x,y,pressed))
         # print 'x:'+x+'\ty:'+y+'\tpressed:'+pressed;
@@ -150,29 +152,34 @@ while (collected < attempts or 1):
 
             x_platform_moveTo = x_platform_current + x_move
             y_platform_moveTo = y_platform_current + y_move
-            #command(ser, "G1 X"+str(x_move)+ " Y"+ str(y_move) + " F20000 \r\n")
+            # command(ser, "G1 X"+str(x_move)+ " Y"+ str(y_move) + " F20000 \r\n")
             if (x_platform_moveTo > 0 and x_platform_moveTo <= 240):
-                print("Loop Begin")
+                # print("Loop Begin")
                 command_tmp = "G0 X" + \
                     str(round(x_platform_moveTo, 2)) + " F20000 \r\n"
-                print(datetime.now() ,"G0 X" + \
-                    str(round(x_platform_moveTo, 2)) + " F20000" )
+                print(datetime.now(), "G0 X" +
+                      str(round(x_platform_moveTo, 2)) + " F20000")
 
                 command(ser, command_tmp)
                 command(ser, "M400 \r\n")
 
-                print(datetime.now(),"x_platform_moveTo:   %d" % x_platform_moveTo)
+                # print(datetime.now(),"x_platform_moveTo:   %d" % x_platform_moveTo)
                 x_platform_current = x_platform_moveTo
-                
-        # ser.close()
-        print(datetime.now(),'x_pen:%d\ty_pen:%d\tpressed:%d' % (x_pen, y_pen, pressed))
-        print(datetime.now(),'delta_x:%d\tdelta_y:%d\tpressed:%d' %
-              (delta_x, delta_y, pressed))
-        print(datetime.now(),'x_move:%d\ty_move:%d\tpressed:%d' % (x_move, y_move, pressed))
+
+                print(datetime.now(), 'x_pen:%d\ty_pen:%d\tpressed:%d' %
+                    (x_pen, y_pen, pressed))
+                print(datetime.now(), 'delta_x:%d\tdelta_y:%d\tpressed:%d' %
+                    (delta_x, delta_y, pressed))
+                print(datetime.now(), 'x_move:%d\ty_move:%d\tpressed:%d' %
+                     (x_move, y_move, pressed))
+            if (time2 - time1 > 0.1):
+                print(datetime.now(), "pen thread x delay ", time2 - time1)
+        ser.close()
+
         # 业务代码 end
         # print("Break point 5")
-        print("Connected: ", collected)
-        print("Loop End \n")
+        # print("Connected: ", collected)
+        # print("Loop End \n")
     except usb.core.USBError as e:
         data = None
         if e.args == ('Operation timed out',):

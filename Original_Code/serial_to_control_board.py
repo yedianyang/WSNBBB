@@ -12,7 +12,7 @@ def command(ser, command):
     while True:
         ser.write(str.encode(command))
         line = ser.readline()
-        #print(line)
+        print(line)
 
         if line == b'ok\n':
             break
@@ -64,6 +64,8 @@ a = 10
 #     movetime += 1
 #     ser.close()
 ser.open()
-command(ser, "G0 X0 F30000 \r\n")
-print(datetime.now())
+for i in range(100):
+    command(ser, "G0 X"+ str(i*1) + "F30000 \r\n")
+    #command(ser, "M400\r\n")
+    print(datetime.now())
 ser.close()

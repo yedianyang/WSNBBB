@@ -27,14 +27,14 @@ x_platform_moveTo =0
 def thread_1():
     global x_platform_moveTo
 
-   
-    x_platform_moveTo += 1
-    print(datetime.now(), "threading 1", x_platform_moveTo)
+    while True:
+        x_platform_moveTo += 1
+        print(datetime.now(), "threading 1", x_platform_moveTo)
 
 def thread_2():
-
+    while True:
     #time.sleep(0.01)
-    print(datetime.now(), " threading 2 " ,x_platform_moveTo)
+        print(datetime.now(), " threading 2 " ,x_platform_moveTo)
 
 
 
