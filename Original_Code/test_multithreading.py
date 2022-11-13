@@ -24,15 +24,21 @@ x_platform_moveTo =0
 #         except KeyboardInterrupt:
 #             break
 
+lock = threading.Lock()
+
 def thread_1():
     global x_platform_moveTo
 
     while True:
-        x_platform_moveTo += 1
-        print(datetime.now(), "threading 1", x_platform_moveTo)
+        with lock:
+            
+            x_platform_moveTo += 1
+            print(datetime.now(), "threading 1", x_platform_moveTo)
+            
 
 def thread_2():
     while True:
+        # with lock:
     #time.sleep(0.01)
         print(datetime.now(), " threading 2 " ,x_platform_moveTo)
 

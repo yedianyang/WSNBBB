@@ -103,13 +103,13 @@ y = 0
 
 ser.open()
 command(ser, "G90 \r\n")
-command(ser, "G0 X0 F5000 \r\n")
-command(ser, "G0 X100 F5000 \r\n")
-command(ser, "G0 X0 F5000 \r\n")
+command(ser, "G0 X0 Y0 F3000 \r\n")
+command(ser, "G0 X100 F3000 \r\n")
+command(ser, "G0 X0 F3000 \r\n")
 print("break point 4.5")
 ser.close()
 
-
+lock = threading.Lock()
 def readingPenData():
     global x
     global y
@@ -122,25 +122,28 @@ def readingPenData():
         
         try:
             #记录系统时间1
-            
-            time1 = time.time()
-            data = dev.read(endpoint.bEndpointAddress, endpoint.wMaxPacketSize)
-            #记录系统时间2
-            
-            #time1 - time2 看看delay在哪里
-
-
-            collected += 1
-            x = data[1]+data[2]*256
-            y = data[3]+data[4]*256
-            pressed = data[5]
-            
-            time2 = time.time()
-            
-            if (time2 - time1 > 0.1):
+            with lock:
+                print(datetime.now(), "thread 1 begin")
+                time1 = time.time()
+                data = dev.read(endpoint.bEndpointAddress, endpoint.wMaxPacketSize)
+                #记录系统时间2
                 
-                print(datetime.now(), "pen thread x delay ", time2 - time1)
-        
+                #time1 - time2 看看delay在哪里
+
+
+                collected += 1
+                x = data[1]+data[2]*256
+                y = data[3]+data[4]*256
+                pressed = data[5]
+                
+                time2 = time.time()
+                #print(datetime.now(), 'thread1 x_pen:%d\ty_pen:%d\tpressed:%d' %
+                #        (x, y, pressed)) 
+
+                if (time2 - time1 > 0.1):
+                    
+                    print(datetime.now(), "pen thread x delay ", time2 - time1)
+            
 
             #y_platform_current = y_platform_moveTo
 
@@ -171,10 +174,12 @@ def move_the_board():
     ser.open()
     while (1):
         try:
+            print(datetime.now(), "thread 1 begin")
             time3 = time.time()
             x_pen = xAxis_Filter.average_filter(x)
-            delta_x = x_pen - x_tar
-            x_move = float(filter.mapping(delta_x, 0, 985, 0, 100))
+            delta_x = x_pen# - x_tar
+            #x_move = float(filter.mapping(delta_x, 0, 985, 0, 100))
+            x_move = float(filter.mapping(delta_x, 0, 1920, 0, 240))
             x_platform_moveTo = x_platform_current + x_move
             #x_platform_current = x_platform_moveTo
 
@@ -184,12 +189,12 @@ def move_the_board():
                 print(datetime.now(), "pen thread y delay ", time3 - time4)
 
             y_pen = yAxis_Filter.average_filter(y)
-            delta_y = y_pen - y_tar
-            y_move = float(filter.mapping(delta_y, 0, 1920, 0, 145))
+            delta_y = y_pen# - y_tar
+            #y_move = float(filter.mapping(delta_y, 0, 1920, 0, 145))
+            y_move = float(filter.mapping(delta_y, 0, 1920, 240,0))
             y_platform_moveTo = y_platform_current + y_move
 
-            x_platform_moveTo = x_platform_current + x_move
-            y_platform_moveTo = y_platform_current + y_move
+            #mapping relationship need to check
 
             if (x_platform_moveTo > 0 and x_platform_moveTo <= 240):
 
@@ -197,20 +202,21 @@ def move_the_board():
                     print("thread2 Loop Begin")
                     #pdb.set_trace()
                     command_tmp = "G0 X" + \
-                        str(round(x_platform_moveTo, 2)) + " F20000 \r\n"
-                    print(datetime.now(), "G0 X" +
-                        str(round(x_platform_moveTo, 2)) + " F20000")
+                        str(round(x_platform_moveTo, 2)) + " Y" + str(round(y_platform_moveTo, 2)) + " F30000 \r\n"
+                    # print(datetime.now(), "G0 X" +
+                    #     str(round(x_platform_moveTo, 2)) + " F20000")
                     #pdb.set_trace()
-                    #command(ser, command_tmp)
+                    command(ser, command_tmp)
                     #command(ser, "M400 \r\n")
 
                     print(datetime.now(), "thread2 x_platform_moveTo:   %d" %
                         x_platform_moveTo)
                     
-                    x_platform_current = x_platform_moveTo # when movement finished, update current x position
-                    y_platform_current = y_platform_moveTo # when movement finished, update current y position
-                    print(datetime.now(), "thread2 x_current:   %d \n thread2 Loop End" %
-                        x_platform_current)
+                    # x_platform_current = x_platform_moveTo # when movement finished, update current x position
+                    # y_platform_current = y_platform_moveTo # when movement finished, update current y position
+                    
+                    # print(datetime.now(), "thread2 x_current:   %d \n thread2 Loop End" %
+                    #     x_platform_current)
                     #pdb.set_trace()
         except KeyboardInterrupt:
             ser.close()
@@ -218,6 +224,7 @@ def move_the_board():
             break
 
     ser.close()
+
 
 def test_thread():
     timeStart= 0
@@ -247,11 +254,11 @@ def test_thread():
 
 readpen = threading.Thread(target=readingPenData)
 moveboard = threading.Thread(target=move_the_board)
-test = threading.Thread(target=test_thread)
+#test = threading.Thread(target=test_thread)
 
 
 
 
 readpen.start()
-#moveboard.start()
-test.start()
+moveboard.start()
+#test.start()
