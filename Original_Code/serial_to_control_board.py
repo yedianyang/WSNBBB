@@ -5,15 +5,16 @@ from datetime import datetime
 
 def command(ser, command):
     start_time = datetime.now()
-
-    #print("Command send")
-    # time.sleep(0.1)
+    ser.write(str.encode(command))
+    time.sleep(0.1)
 
     while True:
-        ser.write(str.encode(command))
-        line = ser.readline()
-        print(line)
 
+        line = ser.readline()
+        #print(line)
+        # if (len(line) > 20):
+        #     return line
+        #     break
         if line == b'ok\n':
             break
 
@@ -64,8 +65,41 @@ a = 10
 #     movetime += 1
 #     ser.close()
 ser.open()
-for i in range(100):
-    command(ser, "G0 X"+ str(i*1) + "F30000 \r\n")
-    #command(ser, "M400\r\n")
-    print(datetime.now())
+
+# command(ser,"G0 X150 F8000 \r\n")
+# line = command(ser, "M114 \r\n")
+# print(line)
+# ser.write(str.encode("X10,Y10"))
+# ser.write(str.encode("X0,Y0"))
+
+while (1):
+    serail_reading = ""
+    try:
+
+
+        command(ser, "X82.30,Y0")
+        serail_reading = ser.readline()
+        if serail_reading != 0:
+            if(serail_reading[0] == 67):
+                decoded_reading = serail_reading.decode("utf-8")
+                
+                x_current = decoded_reading.split(':')[1]
+                y_current = decoded_reading.split(':')[3].split('\\')[0]
+                print(x_current,y_current)
+        
+        
+        #time.sleep(0.5)
+        # command(ser, "X0,Y0")
+
+        # serail_reading = ser.readline()
+        # if(serail_reading[0] == 67):
+        #     decoded_reading = serail_reading.decode("utf-8")
+        #     print(decoded_reading.split(','))
+        
+    except KeyboardInterrupt:
+        break
+
+#command(ser, "M400\r\n")
+# print(datetime.now())
+
 ser.close()

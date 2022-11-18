@@ -26,12 +26,12 @@ def command(ser, command):
     ser.write(str.encode(command))
     # time.sleep(0.1)
 
-    while True:
-        line = ser.readline()
-        print(line)
+    # while True:
+    #     line = ser.readline()
+    #     print(line)
 
-        if line == b'ok\n':
-            break
+    #     if line == b'ok\n':
+    #         break
 
 
 data_filter = [0, 0, 0, 0]
@@ -143,7 +143,7 @@ while (collected < attempts or 1):
         delta_x = x_pen - x_tar
         delta_y = y_pen - y_tar
         # number base of calibration
-        x_move = float(translate(delta_x, 0, 985, 0, 100))
+        x_move = float(translate(delta_x, 0, 1920, 0, 240))
         y_move = float(translate(delta_y, 0, 1920, 0, Y_BOARD))
 
         # update all the from relative to abs
@@ -161,7 +161,7 @@ while (collected < attempts or 1):
                       str(round(x_platform_moveTo, 2)) + " F20000")
 
                 command(ser, command_tmp)
-                command(ser, "M400 \r\n")
+                #command(ser, "M400 \r\n")
 
                 # print(datetime.now(),"x_platform_moveTo:   %d" % x_platform_moveTo)
                 x_platform_current = x_platform_moveTo
@@ -174,7 +174,7 @@ while (collected < attempts or 1):
                      (x_move, y_move, pressed))
             if (time2 - time1 > 0.1):
                 print(datetime.now(), "pen thread x delay ", time2 - time1)
-        ser.close()
+        
 
         # 业务代码 end
         # print("Break point 5")

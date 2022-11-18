@@ -123,7 +123,7 @@ def readingPenData():
         try:
             #记录系统时间1
             with lock:
-                print(datetime.now(), "thread 1 begin")
+                #print(datetime.now(), "thread 1 begin")
                 time1 = time.time()
                 data = dev.read(endpoint.bEndpointAddress, endpoint.wMaxPacketSize)
                 #记录系统时间2
@@ -174,10 +174,10 @@ def move_the_board():
     ser.open()
     while (1):
         try:
-            print(datetime.now(), "thread 1 begin")
+            #print(datetime.now(), "thread 2 begin")
             time3 = time.time()
             x_pen = xAxis_Filter.average_filter(x)
-            delta_x = x_pen# - x_tar
+            delta_x = x_pen - x_tar
             #x_move = float(filter.mapping(delta_x, 0, 985, 0, 100))
             x_move = float(filter.mapping(delta_x, 0, 1920, 0, 240))
             x_platform_moveTo = x_platform_current + x_move
@@ -202,8 +202,8 @@ def move_the_board():
                     print("thread2 Loop Begin")
                     #pdb.set_trace()
                     command_tmp = "G0 X" + \
-                        str(round(x_platform_moveTo, 2)) + " Y" + str(round(y_platform_moveTo, 2)) + " F30000 \r\n"
-                    # print(datetime.now(), "G0 X" +
+                        str(round(x_platform_moveTo, 2)) + " F30000 \r\n"
+                    # print(datetime.now(), "G0 X" + .   #+ " Y" + str(round(y_platform_moveTo, 2))
                     #     str(round(x_platform_moveTo, 2)) + " F20000")
                     #pdb.set_trace()
                     command(ser, command_tmp)
@@ -212,7 +212,7 @@ def move_the_board():
                     print(datetime.now(), "thread2 x_platform_moveTo:   %d" %
                         x_platform_moveTo)
                     
-                    # x_platform_current = x_platform_moveTo # when movement finished, update current x position
+                    x_platform_current = x_platform_moveTo # when movement finished, update current x position
                     # y_platform_current = y_platform_moveTo # when movement finished, update current y position
                     
                     # print(datetime.now(), "thread2 x_current:   %d \n thread2 Loop End" %
