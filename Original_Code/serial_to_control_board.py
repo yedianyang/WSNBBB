@@ -72,34 +72,29 @@ ser.open()
 # ser.write(str.encode("X10,Y10"))
 # ser.write(str.encode("X0,Y0"))
 
-while (1):
-    serail_reading = ""
-    try:
+serail_reading = ""
 
 
-        command(ser, "X82.30,Y0")
-        serail_reading = ser.readline()
-        if serail_reading != 0:
-            if(serail_reading[0] == 67):
-                decoded_reading = serail_reading.decode("utf-8")
-                
-                x_current = decoded_reading.split(':')[1]
-                y_current = decoded_reading.split(':')[3].split('\\')[0]
-                print(x_current,y_current)
+
+command(ser, "X82.30,Y50")
+serail_reading = ser.readline()
+if serail_reading != 0:
+    if(serail_reading[0] == 67):
+        decoded_reading = serail_reading.decode("utf-8")
         
-        
-        #time.sleep(0.5)
-        # command(ser, "X0,Y0")
+        x_current = decoded_reading.split(':')[1]
+        y_current = decoded_reading.split(':')[3].split('\\')[0]
+        print(x_current,y_current)
+      
+#time.sleep(0.5)
+# command(ser, "X0,Y0")
 
-        # serail_reading = ser.readline()
-        # if(serail_reading[0] == 67):
-        #     decoded_reading = serail_reading.decode("utf-8")
-        #     print(decoded_reading.split(','))
-        
-    except KeyboardInterrupt:
-        break
+# serail_reading = ser.readline()
+# if(serail_reading[0] == 67):
+#     decoded_reading = serail_reading.decode("utf-8")
+#     print(decoded_reading.split(','))
 
-#command(ser, "M400\r\n")
+command(ser, "homing\n")
 # print(datetime.now())
 
 ser.close()
