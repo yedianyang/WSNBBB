@@ -1,3 +1,20 @@
+'''
+2022 Winter Show Version
+
+Hardware:
+    Raspberry Pi 4B 2G
+    24V Power supply
+    Arduino XIAO and Customize motor driver board
+    Webcam Inklink
+
+    Webcam Inklink(Pen Position Data) -->
+    Raspberry Pi(Python script) --> 
+    Serial Port(Sending position to Arduino)
+    Arduinio(Driving Motor) -->
+    Return(motor stepped signal) -->
+    Raspberry Pi 
+'''
+
 from threading import Thread, Event
 import threading
 import time
