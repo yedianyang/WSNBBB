@@ -13,6 +13,7 @@ endpoint = dev[0][(0,0)][0]
 
 usb.util.release_interface(dev, interface)
 
+print("End Point:\n", endpoint)
 
 print ("ENDPOINT"+str(endpoint.bEndpointAddress))
 print("Break point 1")

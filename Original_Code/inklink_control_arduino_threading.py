@@ -21,8 +21,8 @@ yAxisPlatform_Filter = filter.Filter()
 
 
 # init
-#ser = serial.Serial('/dev/ttyACM0', 115200)  # Port definition this one is for seeduino XIAO
-ser = serial.Serial('/dev/ttyUSB0', 115200)   # This one is for ESP32
+# ser = serial.Serial('/dev/ttyACM0', 115200)  # Port definition this one is for seeduino XIAO
+ser = serial.Serial('/dev/ttyAMA0', 115200)   # This one is for ESP32
 time.sleep(0.2)
 ser.close()
 
@@ -115,7 +115,7 @@ ser.open()
 # command(ser, "G0 X0 Y0 F3000 \r\n")
 # command(ser, "G0 X100 F3000 \r\n")
 # command(ser, "G0 X0 F3000 \r\n")
-print("break point 4")
+print("break point 4 - start homing")
 command(ser, "homing\n")
 
 print("break point 4.5")
@@ -162,7 +162,7 @@ def readingPenData():
             # y_platform_current = y_platform_moveTo
 
             # print("thread1 Loop Begin \n")
-            #print(datetime.now(), 'thread1 x_pen:%d\ty_pen:%d\tpressed:%d' %
+            # print(datetime.now(), 'thread1 x_pen:%d\ty_pen:%d\tpressed:%d' %
             #     (x, y, pressed))
 
             # print(datetime.now(), 'thread1 x_move:%d\ty_move:%d\tpressed:%d' %
@@ -189,7 +189,7 @@ def move_the_board():
     ser.open()
     while (1):
         try:
-            x_pen = x#xAxis_Filter.average_filter(x)
+            x_pen = x  # xAxis_Filter.average_filter(x)
             delta_x = x_pen - x_tar
             # x_move = float(filter.mapping(delta_x, 0, 985, 0, 100))
             # mapping relationship need to check
@@ -198,7 +198,7 @@ def move_the_board():
             # if (abs(x_move) > 5):
             x_platform_moveTo = x_platform_current + x_move
 
-            y_pen = y#yAxis_Filter.average_filter(y)
+            y_pen = y  # yAxis_Filter.average_filter(y)
             delta_y = y_pen - y_tar
             # y_move = float(filter.mapping(delta_y, 0, 1920, 0, 145))
             # mapping relationship need to check
@@ -208,8 +208,8 @@ def move_the_board():
             # if (abs(y_move) > 5):
             y_platform_moveTo = y_platform_current + y_move
 
-            # print(datetime.now(), 'thread1 x_move:%d\ty_move:%d\tpressed:%d' %
-            #       (x_move, y_move, pressed))
+            print(datetime.now(), 'thread1 x_move:%d\ty_move:%d\tpressed:%d' %
+                  (x_move, y_move, pressed))
 
             # reading serial data from arduino, and getting thlse current position of the xy platform
 
@@ -221,12 +221,15 @@ def move_the_board():
                     #     "X" + str(xAxisPlatform_Filter.average_filter(round(x_platform_moveTo, 0 ))) + \
                     #     ",Y" + str(yAxisPlatform_Filter.average_filter(round(y_platform_moveTo, 0))) + "\r\n"
                     command_tmp = \
-                         "X" + str(int(x_platform_moveTo)) + \
-                         ",Y" + str(int(y_platform_moveTo)) + "\r\n"
+                        "X" + str(int(x_platform_moveTo)) + \
+                        ",Y" + str(int(y_platform_moveTo)) + "\r\n"
+
+                    command_test = \
+                        "X0,Y" + str(int(y_platform_moveTo)) + "\r\n"
 
                     #print(datetime.now(),"command_tmp:  ", command_tmp)
 
-                    command(ser, command_tmp)
+                    command(ser, command_test)
 
             # This block is use for reading the comming current location
             serial_reading = ser.readline()
@@ -242,7 +245,7 @@ def move_the_board():
                         # print("Current position from Serial Port: X%d  Y%d" % x_current, y_current)
                         # This shit is change by the STEP resolution
                         x_platform_current = float(
-                            x_current) / (20.0 * (STEP/8))
+                            x_current) / (26.66 * (STEP/8))
                         y_platform_current = float(
                             y_current) / (26.66 * (STEP/8))
 
@@ -255,8 +258,8 @@ def move_the_board():
                 # print(datetime.now(), "thread2 platform_moveTo:  X %f Y %f" %
                 #       (x_platform_moveTo, y_platform_moveTo))
 
-                # print(datetime.now(), "thread2 current: X %f Y %f  thread2 Loop End" %
-                #        (x_platform_current, y_platform_current))
+                print(datetime.now(), "thread2 current: X %f Y %f  thread2 Loop End" %
+                      (x_platform_current, y_platform_current))
 
         except KeyboardInterrupt:
             ser.close()

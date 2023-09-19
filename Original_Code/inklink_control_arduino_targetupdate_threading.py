@@ -1,4 +1,5 @@
 '''
+Desktop Running Version
 2022 Winter Show Version
 
 Hardware:
@@ -182,7 +183,7 @@ def readingPenData():
                 if (time2 - time1 > 0.1):
                     dump = dev.read(endpoint.bEndpointAddress,
                                     endpoint.wMaxPacketSize)
-                    print(datetime.now(), "pen thread x delay ", time2 - time1)
+                    print(datetime.now(), "pen thread delay ", time2 - time1)
 
             # y_platform_current = y_platform_moveTo
 
@@ -252,6 +253,10 @@ def move_the_board():
                     # print(datetime.now(), "command_tmp:  ", command_tmp)
 
                     command(ser, command_tmp)
+            #     else:
+            #         command(ser, "X" + str(int(x_platform_moveTo)) + "Y120" + "\r\n")
+            # else:
+            #     command(ser, "X120" + ",Y" +str(int(y_platform_moveTo)) + "\r\n")
 
             # This block is use for reading the comming current location
             serial_reading = ser.readline()
@@ -261,15 +266,15 @@ def move_the_board():
                         decoded_reading = serial_reading.decode("utf-8")
                         # print("raw_reading:   ",serial_reading)
                         # print("decoded_reading:   ", decoded_reading)
-                        x_current = int(decoded_reading.split(':')[1])
-                        y_current = int(decoded_reading.split(':')[
+                        x_platform_current = int(decoded_reading.split(':')[1])
+                        y_platform_current = int(decoded_reading.split(':')[
                                         3].split('\\')[0])
                         # print("Current position from Serial Port: X%d  Y%d" % x_current, y_current)
                         # This shit is change by the STEP resolution
-                        x_platform_current = float(
-                            x_current) / (20.0 * (STEP/8))
-                        y_platform_current = float(
-                            y_current) / (26.66 * (STEP/8))
+                        # x_platform_current = float(
+                        #     x_current) / (20.0 * (STEP/8))
+                        # y_platform_current = float(
+                        #     y_current) / (26.66 * (STEP/8))
                 # print(datetime.now(), "thread2 delta: X %f Y %f" %
                 #       (delta_x, delta_y))
 
@@ -280,7 +285,7 @@ def move_the_board():
                 #       (x_platform_moveTo, y_platform_moveTo))
 
                 print(datetime.now(), "thread2 current: X %f Y %f  thread2 Loop End" %
-                       (x_platform_current, y_platform_current))
+                      (x_platform_current, y_platform_current))
 
         except KeyboardInterrupt:
             ser.close()
@@ -340,27 +345,27 @@ def update_target():
 
             if (pressed):
                 if (tmp < 25):
-                #         prop += 0.01
+                    #         prop += 0.01
 
-                #     if (prop >= 1):
-                #         prop = 0
-                #         state += 1
+                    #     if (prop >= 1):
+                    #         prop = 0
+                    #         state += 1
 
-                #     if (state == 0):
-                #         x_tar = Lerp(point1[0], point2[0], prop)
-                #         y_tar = Lerp(point1[1], point2[1], prop)
+                    #     if (state == 0):
+                    #         x_tar = Lerp(point1[0], point2[0], prop)
+                    #         y_tar = Lerp(point1[1], point2[1], prop)
 
-                #     if (state == 1):
-                #         x_tar = Lerp(point2[0], point3[0], prop)
-                #         y_tar = Lerp(point2[1], point3[1], prop)
+                    #     if (state == 1):
+                    #         x_tar = Lerp(point2[0], point3[0], prop)
+                    #         y_tar = Lerp(point2[1], point3[1], prop)
 
-                #     if (state == 2):
-                #         x_tar = Lerp(point3[0], point4[0], prop)
-                #         y_tar = Lerp(point3[1], point4[1], prop)
+                    #     if (state == 2):
+                    #         x_tar = Lerp(point3[0], point4[0], prop)
+                    #         y_tar = Lerp(point3[1], point4[1], prop)
 
-                #     if (state == 3):
-                #         x_tar = Lerp(point4[0], point1[0], prop)
-                #         y_tar = Lerp(point4[1], point1[1], prop)
+                    #     if (state == 3):
+                    #         x_tar = Lerp(point4[0], point1[0], prop)
+                    #         y_tar = Lerp(point4[1], point1[1], prop)
 
                     # print("Threading 3:  tarX %d tarY %d" % (x_tar, y_tar))
                     if (state == 0):
