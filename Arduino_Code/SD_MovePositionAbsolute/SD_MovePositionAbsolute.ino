@@ -18,9 +18,9 @@
 int velocityLimit = 2000;        // pulses per sec
 int accelerationLimit = 900000;  // pulses per sec^2
 
-bool XACTIVE = true;
+bool XACTIVE = false;
 
-bool YACTIVE = true;
+bool YACTIVE = false;
 
 bool MoveAbsolutePosition(int32_t position);
 
