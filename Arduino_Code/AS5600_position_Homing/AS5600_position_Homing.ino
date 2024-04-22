@@ -49,7 +49,7 @@ void loop()
   static uint32_t lastTime = 0;
 
   //  set initial position
-  as5600.getCumulativePosition();
+  //XXas5600.getCumulativePosition();
 
   //  update every 100 ms
   //  should be enough up to ~200 RPM
@@ -67,7 +67,7 @@ void loop()
 }
 
 void sensorHomeing() {
-  delay(5000);
+  delay(3000);
   as5600.resetCumulativePosition(0);
 
 
