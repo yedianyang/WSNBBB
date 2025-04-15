@@ -6,8 +6,10 @@ import numpy as np
 import math
 
 import sys
+import serial.tools.list_ports
 import usb.core
 import usb.util
+import serial
 
 import serial
 import time
@@ -19,26 +21,35 @@ import filter
 def command(ser, command):
     start_time = datetime.now()
     ser.write(str.encode(command))
-    time.sleep(0.1)
+    time.sleep(0.01)
 
-    while True:
+    # while True:
 
-        line = ser.readline()
-        # print(line)
-        # if (len(line) > 20):
-        #     return line
-        #     break
-        if line == b'ok\n':
-            break
+    #     line = ser.readline()
+    #     # print(line)
+    #     # if (len(line) > 20):
+    #     #     return line
+    #     #     break
+    #     if line == b'ok\n':
+    #         break
 
-ser = serial.Serial('/dev/cu.usbmodem21201', 115200)
-serXIAO = serial.Serial('/dev/cu.usbmodem21201', 115200)
-# ser = serial.Serial('/dev/ttyUSB0', 115200)   # This one is for ESP32
-time.sleep(1)
-ser.close()
-serXIAO.close()
+ports = serial.tools.list_ports.comports()
+serXIAOAddress = ""
+serClearCoreAddress = ""
 
+# 遍历并打印每个串口设备的信息
+for port in ports:
+    # print(f"设备名：{port.device}\t描述：{port.description}\t硬件ID：{port.hwid}")
+    if ("ClearCore" in port.description):
+        serClearCoreAddress = port.device
+    if ("XIAO" in port.description):
+        serXIAOAddress = port.device
 
+print("ClearCore Address:  ", serClearCoreAddress)
+#print("XIAO Address:  ", serXIAOAddress)
+
+#serXIAO = serial.Serial(serXIAOAddress, 115200)
+serClearCore = serial.Serial(serClearCoreAddress, 115200)
 
 
 STEP = 8
@@ -64,37 +75,38 @@ y_platform_current = 0
 
 print("Break point 1")
 
-ser.open()
-serXIAO.open()
-command(ser,"homing\n")
-command(serXIAO, "homing\n")
-print("Homeing Before Work")
-ser.close()
-serXIAO.close()
+print("ClearCore Homing Begin")
+command(serClearCore, "homing\n")
+print(serClearCore.readline())
+
+time.sleep(5)
+#serClearCore.close()
 
 def sendSerialData():
+    #serClearCore.open()
     print("Break3")
-    serXIAO.open()
+    #command(serClearCore, "X50,Y50\r\n")
+    time.sleep(1)
     while (1):
         try:
             # print("Break4")
             command_tmp = ""
             x_platform_moveTo = 5  # int(sineMovePosition.x_aimPoint)
-            y_platform_moveTo = int(sineMovePosition.y_aimPoint)
+            y_platform_moveTo = float(sineMovePosition.y_aimPoint)
 
-            if ((x_platform_moveTo >= 0 and x_platform_moveTo <= 240)):
-                if (((y_platform_moveTo >= 0 and y_platform_moveTo < 240))):
+            if ((x_platform_moveTo >= 0 and x_platform_moveTo <= 500)):
+                if (((y_platform_moveTo >= 0 and y_platform_moveTo < 500))):
 
                     # if (abs(x_move) > 2 or abs(y_move) > 2):
                     command_tmp = \
-                        "X" + str(int(y_platform_moveTo)) + \
-                        ",Y" + str(int(y_platform_moveTo)) + "\r\n"
+                        "X250,Y" + str(round(float(y_platform_moveTo),2)) + "\r\n"
+                        #"X" + str(float(y_platform_moveTo)) + \
 
                     print(datetime.now(), "command_tmp:  ", command_tmp)
 
                     #command(ser, command_tmp)
-                    command(serXIAO,command_tmp)
-                    # print(command_tmp)
+                    command(serClearCore,command_tmp)
+                    print(command_tmp)
                     # print("Break5")
 
         except KeyboardInterrupt:
@@ -106,7 +118,7 @@ def sendSerialData():
 
 def sendSerialData1():
     print("Break3")
-    ser.open()
+    #serClearCore.open()
     while (1):
         try:
             # print("Break4")
@@ -124,7 +136,7 @@ def sendSerialData1():
 
                     print(datetime.now(), "command_tmp:  ", command_tmp)
 
-                    command(ser, command_tmp)
+                    command(serClearCore, command_tmp)
                   
                     # print(command_tmp)
                     # print("Break5")
@@ -139,7 +151,7 @@ def readSerialData():
     global x_current_position
 
     print("ReadSerail Break1")
-    serXIAO.open()
+    #serClearCore.open()
     while (1):
         try:
             serial_reading = serXIAO.readline()
@@ -187,6 +199,6 @@ PositionUpdaterTask.start()
 sendSerialDataTask = threading.Thread(target=sendSerialData)
 sendSerialDataTask.start()
 
-sendSerialDataTask1 = threading.Thread(target=sendSerialData1)
-sendSerialDataTask1.start()
+#sendSerialDataTask1 = threading.Thread(target=sendSerialData1)
+#sendSerialDataTask1.start()
 
