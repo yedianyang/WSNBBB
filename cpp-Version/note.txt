@@ -1,0 +1,20 @@
+project_root/
+├── cpp-Version/
+│   ├── devices/
+│   │   ├── WacomInkling.hpp     # Inkling设备的声明
+│   │   ├── WacomInkling.cpp     # Inkling设备的实现
+│   │   ├── ClearPathSC.hpp      # ClearPath-SC设备的声明
+│   │   └── ClearPathSC.cpp      # ClearPath-SC设备的实现
+│   │
+│   ├── controllers/
+│   │   ├── MotionController.hpp # 运动控制器声明（单轴）
+│   │   └── MotionController.cpp # 运动控制器实现
+│   │
+│   ├── utils/
+│   │   ├── Logger.hpp           # 日志工具
+│   │   └── ErrorCodes.hpp       # 错误代码定义
+│   │
+│   └── main.cpp                 # 主程序
+│
+├── Makefile                     # 编译配置
+└── README.md                    # 项目说明

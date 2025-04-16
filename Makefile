@@ -1,7 +1,7 @@
 # Makefile
 CXX = g++
 CXXFLAGS = -std=c++11 -Wall -I/usr/include/libusb-1.0 -I./Library/ClearPath-SC-Development/include
-LDFLAGS = -L/usr/lib -L./Library/ClearPath-SC-Development/lib -lusb-1.0 -lsFoundation -lpthread
+LDFLAGS = -L/usr/lib -L/usr/local/lib -lusb-1.0 -lsFoundation20 -lpthread
 
 # 源文件
 SOURCES = cpp-Version/main.cpp cpp-Version/WacomInkling.cpp
