@@ -1,6 +1,6 @@
 // main.cpp
 #include "./WacomInkling.hpp"
-#include "sFoundation.h"
+#include "./Library/ClearPath-SC-Development/sFoundation.h"
 #include <iostream>
 #include <vector>
 #include <chrono>
