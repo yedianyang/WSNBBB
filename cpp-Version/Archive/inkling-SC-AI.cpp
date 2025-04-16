@@ -1,7 +1,7 @@
 // InklingClearPathSCController.cpp - 基于Wacom Inkling控制ClearPath-SC电机
 
 #include <iostream>
-#include <libusb.h>
+#include <libusb-1.0/libusb.h>
 #include <vector>
 #include <chrono>
 #include <thread>
@@ -12,6 +12,7 @@
 #include <queue>
 #include <condition_variable>
 #include "sFoundation.h"  // ClearPath SC SDK头文件
+#include "WacomInkling.hpp"
 
 // 错误代码定义
 enum ErrorCode {
@@ -35,6 +36,7 @@ struct PenData {
 
 class InklingClearPathSCController {
 private:
+    WacomInkling inkling;
     // Inkling设备常量
     const uint16_t WACOM_VENDOR_ID = 0x056A;
     const uint16_t WACOM_PRODUCT_ID = 0x0221;
@@ -42,8 +44,8 @@ private:
     const uint8_t USBRQ_HID_SET_REPORT = 0x09;
     
     // ClearPath-SC参数
-    const int X_MAX_POS = 240;  // X轴最大位置
-    const int Y_MAX_POS = 240;  // Y轴最大位置
+    const int X_MAX_POS = 500;  // X轴最大位置 mm
+    const int Y_MAX_POS = 500;  // Y轴最大位置 mm
     const double FILTER_COEFFICIENT = 0.7;  // 滤波系数
     
     // 映射参数
@@ -74,7 +76,7 @@ private:
     std::thread motorControlThread;
     
     // 坐标数据
-    PenData currentPenData{0, 0, false};
+    PenData currentPenData{960, 960, false};
     std::queue<PenData> dataQueue;
     std::condition_variable dataCondition;
     
@@ -98,15 +100,14 @@ public:
     
     ErrorCode initialize() {
         // 初始化Inkling设备
-        ErrorCode result = initializeInkling();
-        if (result != SUCCESS) {
-            return result;
+        if (!inkling.initialize()) {
+            errorMessage = inkling.getLastError();
+            return INKLING_INIT_ERROR;
         }
         
         // 初始化ClearPath-SC
-        result = initializeClearPathSC();
+        ErrorCode result = initializeClearPathSC();
         if (result != SUCCESS) {
-            cleanupInkling();
             return result;
         }
         
@@ -171,91 +172,6 @@ public:
     }
 
 private:
-    ErrorCode initializeInkling() {
-        // 初始化libusb
-        if (libusb_init(&usbContext) < 0) {
-            errorMessage = "无法初始化libusb";
-            return INKLING_INIT_ERROR;
-        }
-        
-        // 打开Wacom Inkling设备
-        deviceHandle = libusb_open_device_with_vid_pid(usbContext, WACOM_VENDOR_ID, WACOM_PRODUCT_ID);
-        if (!deviceHandle) {
-            errorMessage = "找不到Wacom Inkling设备";
-            libusb_exit(usbContext);
-            return INKLING_INIT_ERROR;
-        }
-        
-        // 获取端点信息
-        libusb_device* device = libusb_get_device(deviceHandle);
-        struct libusb_config_descriptor* config;
-        libusb_get_config_descriptor(device, 0, &config);
-        endpointAddress = config->interface[0].altsetting[0].endpoint[0].bEndpointAddress;
-        maxPacketSize = config->interface[0].altsetting[0].endpoint[0].wMaxPacketSize;
-        
-        // 如果内核驱动程序处于活动状态则分离
-        if (libusb_kernel_driver_active(deviceHandle, interface) == 1) {
-            if (libusb_detach_kernel_driver(deviceHandle, interface) != 0) {
-                errorMessage = "无法分离内核驱动程序";
-                libusb_close(deviceHandle);
-                libusb_exit(usbContext);
-                return INKLING_INIT_ERROR;
-            }
-        }
-        
-        // 声明接口
-        int ret = libusb_claim_interface(deviceHandle, interface);
-        if (ret < 0) {
-            errorMessage = "无法声明接口: " + std::string(libusb_error_name(ret));
-            libusb_close(deviceHandle);
-            libusb_exit(usbContext);
-            return INKLING_INIT_ERROR;
-        }
-        
-        // 设备配置 - 发送控制传输
-        configureInkling();
-        
-        return SUCCESS;
-    }
-    
-    void configureInkling() {
-        // 各种控制传输配置，遵循wacom_inkling.cpp中的配置步骤
-        std::vector<unsigned char> buf;
-        
-        // 第一次控制传输 - 激活数字化仪
-        buf = {0x80, 0x01, 0x03, 0x01, 0x01};
-        buf.resize(33, 0);
-        libusb_control_transfer(deviceHandle, 0x21, USBRQ_HID_SET_REPORT, 0x0380, 0, buf.data(), buf.size(), 0);
-        
-        // 第二次控制传输 - 设置数据模式
-        buf = {0x80, 0x01, 0x0A, 0x01, 0x01, 0x0B, 0x01};
-        buf.resize(33, 0);
-        libusb_control_transfer(deviceHandle, 0x21, USBRQ_HID_SET_REPORT, 0x0380, 0, buf.data(), buf.size(), 0);
-        
-        // 获取报告 - 读取设备状态
-        buf.resize(33, 0);
-        libusb_control_transfer(deviceHandle, 0xA1, USBRQ_HID_GET_REPORT, 0x0380, 0, buf.data(), buf.size(), 0);
-        
-        // 第三次控制传输 - 设置响应模式
-        buf = {0x80, 0x01, 0x0B, 0x01};
-        buf.resize(33, 0);
-        libusb_control_transfer(deviceHandle, 0x21, USBRQ_HID_SET_REPORT, 0x0380, 0, buf.data(), buf.size(), 0);
-        
-        // 第四次控制传输 - 启用报告
-        buf = {0x80, 0x01, 0x02, 0x01, 0x01};
-        buf.resize(33, 0);
-        libusb_control_transfer(deviceHandle, 0x21, USBRQ_HID_SET_REPORT, 0x0380, 0, buf.data(), buf.size(), 0);
-        
-        // 第五次控制传输 - 配置数据格式
-        buf = {0x80, 0x01, 0x0A, 0x01, 0x01, 0x02, 0x01};
-        buf.resize(33, 0);
-        libusb_control_transfer(deviceHandle, 0x21, USBRQ_HID_SET_REPORT, 0x0380, 0, buf.data(), buf.size(), 0);
-        
-        // 再次获取报告 - 确认设备状态
-        buf.resize(33, 0);
-        libusb_control_transfer(deviceHandle, 0xA1, USBRQ_HID_GET_REPORT, 0x0380, 0, buf.data(), buf.size(), 0);
-    }
-    
     ErrorCode initializeClearPathSC() {
         try {
             // 创建SysManager实例
@@ -473,66 +389,39 @@ private:
     }
     
     void motorControlLoop() {
-        try {
-            while (running) {
-                PenData data;
-                bool hasData = false;
+        InklingData data;
+        while (running) {
+            if (inkling.getData(data)) {
+                // 处理位置数据
+                filteredX = applyFilter(filteredX, data.x);
+                filteredY = applyFilter(filteredY, data.y);
                 
-                // 从队列获取数据
-                {
-                    std::unique_lock<std::mutex> lock(dataMutex);
-                    if (dataQueue.empty()) {
-                        // 等待新数据，最多等待100ms
-                        dataCondition.wait_for(lock, std::chrono::milliseconds(100));
-                    }
-                    
-                    if (!dataQueue.empty()) {
-                        data = dataQueue.front();
-                        dataQueue.pop();
-                        hasData = true;
-                    }
-                }
+                // 计算相对于目标的偏差
+                double deltaX = filteredX - X_TARGET;
+                double deltaY = filteredY - Y_TARGET;
                 
-                if (hasData) {
-                    // 应用滤波
-                    filteredX = applyFilter(filteredX, data.x);
-                    filteredY = applyFilter(filteredY, data.y);
+                // 映射到电机控制参数
+                double xMove = deltaX * X_SCALE;
+                double yMove = deltaY * Y_SCALE;
+                
+                // 计算新的位置
+                double xTargetPos = xCurrentPos + xMove;
+                double yTargetPos = yCurrentPos + yMove;
+                
+                // 防止越界
+                xTargetPos = std::max(0.0, std::min(static_cast<double>(X_MAX_POS), xTargetPos));
+                yTargetPos = std::max(0.0, std::min(static_cast<double>(Y_MAX_POS), yTargetPos));
+                
+                // 检查移动距离是否足够大
+                if (std::abs(xMove) > 2 || std::abs(yMove) > 2) {
+                    moveToPosition(xTargetPos, yTargetPos);
                     
-                    // 计算相对于目标的偏差
-                    double deltaX = filteredX - X_TARGET;
-                    double deltaY = filteredY - Y_TARGET;
-                    
-                    // 映射到电机控制参数
-                    double xMove = deltaX * X_SCALE;
-                    double yMove = deltaY * Y_SCALE;
-                    
-                    // 计算新的位置
-                    double xTargetPos = xCurrentPos + xMove;
-                    double yTargetPos = yCurrentPos + yMove;
-                    
-                    // 防止越界
-                    xTargetPos = std::max(0.0, std::min(static_cast<double>(X_MAX_POS), xTargetPos));
-                    yTargetPos = std::max(0.0, std::min(static_cast<double>(Y_MAX_POS), yTargetPos));
-                    
-                    // 检查移动距离是否足够大
-                    if (std::abs(xMove) > 2 || std::abs(yMove) > 2) {
-                        moveToPosition(xTargetPos, yTargetPos);
-                        
-                        // 更新当前位置
-                        std::lock_guard<std::mutex> lock(controlMutex);
-                        xCurrentPos = xTargetPos;
-                        yCurrentPos = yTargetPos;
-                    }
+                    // 更新当前位置
+                    std::lock_guard<std::mutex> lock(controlMutex);
+                    xCurrentPos = xTargetPos;
+                    yCurrentPos = yTargetPos;
                 }
             }
-        } catch (mnErr& theErr) {
-            lastError = CLEARPATH_MOVE_ERROR;
-            errorMessage = "ClearPath-SC错误: 地址=" + std::to_string(theErr.TheAddr) + 
-                           ", 代码=0x" + std::to_string(theErr.ErrorCode) + 
-                           ", 消息=" + std::string(theErr.ErrorMsg);
-        } catch (const std::exception& e) {
-            lastError = THREAD_ERROR;
-            errorMessage = "电机控制线程异常: " + std::string(e.what());
         }
     }
     
