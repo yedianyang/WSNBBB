@@ -1,4 +1,5 @@
 //Required include files
+//需要的包含文件
 #include <stdio.h>	
 #include <string>
 #include <iostream>
@@ -7,6 +8,7 @@
 using namespace sFnd;
 
 // Send message and wait for newline
+// 发送消息并等待换行
 void msgUser(const char *msg) {
 	std::cout << msg;
 	getchar();
@@ -15,26 +17,46 @@ void msgUser(const char *msg) {
 //*********************************************************************************
 //This program will load configuration files onto each node connected to the port, then executes
 //sequential repeated moves on each axis.
+//此程序将配置文件加载到连接到端口的每个节点，然后在每个轴上执行顺序重复移动。
 //*********************************************************************************
 
 #define CHANGE_NUMBER_SPACE	2000	//The change to the numberspace after homing (cnts)
+                                      //归零后对数字空间的更改（计数）
 #define TIME_TILL_TIMEOUT	10000	//The timeout used for homing(ms)
+                                      //用于归零操作的超时时间（毫秒）
 
+/*****************************************************************************
+*  Function Name: main
+*  Description:  The main function for this example. One command-line argument
+*               is expected, which is the COM port number for where the SC 
+*               network is attached.
+*  Return:      0 if successful; non-zero if there was a problem
+*
+*  函数名称：main
+*  描述：    这个示例的主函数。需要一个命令行参数，
+*           即SC网络连接的COM端口号。
+*  返回：    成功返回0；如果有问题则返回非零值
+*****************************************************************************/
 
 int main(int argc, char* argv[])
 {
 	msgUser("Homing Example starting. Press Enter to continue.");
 
-size_t portCount = 0;
+	size_t portCount = 0;
 	std::vector<std::string> comHubPorts;
 
 	//Create the SysManager object. This object will coordinate actions among various ports
 	// and within nodes. In this example we use this object to setup and open our port.
+	// 创建SysManager对象。该对象将协调各个端口之间和节点内的操作。
+	// 在此示例中，我们使用此对象来设置和打开端口。
 	SysManager* myMgr = SysManager::Instance();							//Create System Manager myMgr
 
 	//This will try to open the port. If there is an error/exception during the port opening,
 	//the code will jump to the catch loop where detailed information regarding the error will be displayed;
 	//otherwise the catch loop is skipped over
+	//这将尝试打开端口。如果在打开端口期间出现错误/异常，
+	//代码将跳转到catch循环，在那里将显示有关错误的详细信息；
+	//否则将跳过catch循环
 	try
 	{
 
@@ -69,6 +91,8 @@ size_t portCount = 0;
 
 		//Once the code gets past this point, it can be assumed that the Port has been opened without issue
 		//Now we can get a reference to our port object which we will use to access the node 
+		//一旦代码通过这一点，就可以假定端口已成功打开
+		//现在我们可以获取端口对象的引用，用于访问节点
 
 		for (size_t iPort = 0; iPort < portCount; iPort++) {
 			// Get a reference to the port, to make accessing it easier
