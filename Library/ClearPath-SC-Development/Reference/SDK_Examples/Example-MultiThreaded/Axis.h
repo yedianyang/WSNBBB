@@ -62,9 +62,6 @@ private:
 	Supervisor *m_super;		// The supervisor
 	INode *m_node;				// The ClearPath-SC for this axis
 	thread m_thread;			// Handle to this Axis's thread
-	thread m_positionThread;    // 位置监控线程
-	atomic<bool> m_monitoring;  // 监控标志
-	mutex m_positionMutex;      // 位置互斥锁
 
 	// Filename for the config file stored at the start
 #define MAX_CONFIG_PATH_LENGTH 256
@@ -87,7 +84,6 @@ private:
 	mgMoveProfiledInfo m_move;
 	::uint32_t m_moveCount;
 	::int32_t m_moveTimeoutMs;
-	::int32_t m_positionWrapCount;  // Add position wrap counter
 
 	bool m_quitting;			// Axis quitting
 
@@ -109,9 +105,6 @@ private:
 	
 	// The state machine
 	void AxisMain(Supervisor *theSuper);
-
-	// 添加这个函数声明
-	void PositionMonitor();
 
 public:
 	// Constructor/Destructor
