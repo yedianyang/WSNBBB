@@ -8,12 +8,14 @@
 #include <thread>
 #include <mutex>
 #include <atomic>
+#include "./WacomInkling.hpp"  // Add WacomInkling header
 
 using namespace sFnd;
 
 // Global variables for motor control
 std::atomic<bool> isMoving(false);
 std::mutex motorMutex;
+std::atomic<bool> inklingRunning(true);  // Add flag for inkling thread
 
 // Send message and wait for newline
 void msgUser(const char *msg)
@@ -54,6 +56,26 @@ void moveMotor(INode& theNode, int position) {
 	// The next move command will interrupt this one if needed
 }
 
+void inklingDataThread(WacomInkling& inkling, IPort& myPort) {
+	while (inklingRunning) {
+		InklingData data;
+		if (inkling.getData(data)) {
+			// Convert inkling X position to motor position
+			// Assuming inkling X range is 0-10000 and motor position is in counts
+			int motorPosition = static_cast<int>(data.x * 10);  // Scale factor may need adjustment
+			
+			// Start motor movement with inkling X position
+			std::thread motorThread(moveMotor, std::ref(myPort.Nodes(0)), motorPosition);
+			motorThread.detach();
+			
+			// Print position for debugging
+			printf("Inkling Position: X=%d, Y=%d, Pressed=%d\n", 
+				   data.x, data.y, data.pressed);
+		}
+		std::this_thread::sleep_for(std::chrono::milliseconds(10));  // Small delay to prevent CPU overload
+	}
+}
+
 int main(int argc, char *argv[])
 {
 	msgUser("Motion Example starting. Press Enter to continue.");
@@ -92,6 +114,10 @@ int main(int argc, char *argv[])
 		}
 		// printf("\n I will now open port \t%i \n \n", portnum);
 		myMgr->PortsOpen(portCount); // Open the port
+
+		// 获取系统支持的线程数
+		unsigned int numThreads = std::thread::hardware_concurrency();
+		std::cout << "Number of CPU cores: " << numThreads << std::endl;
 
 		for (size_t i = 0; i < portCount; i++)
 		{
@@ -194,29 +220,45 @@ int main(int argc, char *argv[])
 			// At this point we will execute moves based on user input
 			//////////////////////////////////////////////////////////////////////////////////////
 
+			// Initialize Wacom Inkling
+			WacomInkling inkling;
+			
+			// Check if device is connected and initialize
+			printf("Checking device connection...\n");
+			if (!inkling.initialize()) {
+				printf("Failed to initialize Wacom Inkling: %s\n", inkling.getLastError().c_str());
+				printf("Please check:\n");
+				printf("1. Device is properly connected via USB\n");
+				printf("2. USB permissions are correctly set\n");
+				printf("3. No other application is using the device\n");
+				return -1;
+			}
+			
+			printf("Wacom Inkling initialized successfully\n");
+			printf("Starting data acquisition...\n");
+			inkling.start();
+			printf("Data acquisition started\n");
+			printf("Device is ready to track position\n");
+			printf("Press 'q' to quit\n\n");
+
+			// Start inkling data thread
+			std::thread inklingThread(inklingDataThread, std::ref(inkling), std::ref(myPort));
+
+			// Main loop
 			while (true) {
-				printf("\nEnter position (or 'q' to quit): ");
+				printf("\nPress 'q' to quit: ");
 				std::string input;
 				std::getline(std::cin, input);
 
 				if (input == "q" || input == "Q") {
+					inklingRunning = false;  // Signal inkling thread to stop
 					break;
 				}
-
-				try {
-					int position = std::stoi(input) * 1000;
-					
-					// Start motor movement in a separate thread
-					std::thread motorThread(moveMotor, std::ref(myPort.Nodes(0)), position);
-					motorThread.detach(); // Detach the thread to let it run independently
-				}
-				catch (const std::invalid_argument&) {
-					printf("Invalid input. Please enter a valid number.\n");
-				}
-				catch (const std::out_of_range&) {
-					printf("Input number is too large. Please enter a smaller number.\n");
-				}
 			}
+
+			// Cleanup
+			inklingThread.join();
+			inkling.stop();
 
 			///////////////////////////////////////////////////////////////////////////////////////
 			// Original code for executing 10 rev moves sequentially on each axis
