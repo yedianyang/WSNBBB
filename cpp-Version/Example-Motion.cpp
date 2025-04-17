@@ -86,7 +86,7 @@ void inklingDataThread(WacomInkling& inkling, IPort& myPort) {
 		auto loop_duration = std::chrono::duration_cast<std::chrono::microseconds>(loop_end - loop_start);
 		printf("Inkling loop execution time: %lld us\n", loop_duration.count());
 		
-		std::this_thread::sleep_for(std::chrono::milliseconds(0.5));
+		std::this_thread::sleep_for(std::chrono::milliseconds(1));
 	}
 }
 
@@ -235,6 +235,9 @@ int main(int argc, char *argv[])
 			//////////////////////////////////////////////////////////////////////////////////////
 
 			// Initialize Wacom Inkling
+
+			WacomInkling inkling;
+
 			printf("Attempting to release any existing Inkling connection...\n");
 			inkling.release(); 
 			std::this_thread::sleep_for(std::chrono::milliseconds(500));  // Give some time for the release to complete
