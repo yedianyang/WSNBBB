@@ -5,17 +5,31 @@ WacomInkling::WacomInkling() {}
 
 WacomInkling::~WacomInkling() {
     stop();
+    release();
+}
+
+void WacomInkling::releaseDevice() {
     if (deviceHandle) {
         libusb_release_interface(deviceHandle, interface);
         libusb_close(deviceHandle);
+        deviceHandle = nullptr;
     }
     if (usbContext) {
         libusb_exit(usbContext);
+        usbContext = nullptr;
     }
+}
+
+void WacomInkling::release() {
+    stop();
+    releaseDevice();
 }
 
 bool WacomInkling::initialize() {
     try {
+        // 先尝试释放可能存在的连接
+        releaseDevice();
+        
         if (libusb_init(&usbContext) < 0) {
             errorMessage = "无法初始化libusb";
             return false;
