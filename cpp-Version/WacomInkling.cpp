@@ -1,4 +1,4 @@
-#include "WacomInkling.hpp"
+#include "./WacomInkling.hpp"
 #include <iostream>
 
 WacomInkling::WacomInkling() {}
