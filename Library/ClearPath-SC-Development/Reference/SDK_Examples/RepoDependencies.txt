@@ -1,0 +1,5 @@
+Dependencies
+Path,URL,Commit/Branch
+-----------------------------
+../sFoundation, https://git-server.teknic.com/UserDriverGroup/sFoundation.git, develop
+-----------------------------

@@ -1,0 +1,100 @@
+# Global variables, these can be used by any CI step
+variables:
+  GIT_STRATEGY: none
+  SOLUTION_DIR: SDK_Examples
+  BUILD_PLATFORM: x86
+  BUILD_CONFIGURATION: Debug
+  NUGET_VERSION: 1.1.0
+  DEV_TOOLS_VERSION: 7.X
+
+# This 'workflow' prevents the CI from running when a tag or a merge request is
+# created We do this because those events run the CI in a detached state that
+# fails to give us all the information we need to setup for some stages
+workflow:
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      when: never
+    - if: $CI_COMMIT_TAG
+      when: never 
+    - when: always
+
+# these are the different stages that are in the CI pipeline stages need to be
+# added/removed both here and below when making updates
+stages:
+  - clone
+  - build
+  - check_release
+
+# The clone step clones the repository for the given repo and saves the entire
+# repo as an artifact for us to use later
+clone_step:
+  stage: clone
+  tags:
+    - visualstudio2019
+  script:
+    - 'Remove-Item .\DevTools* -Recurse -Force'
+    - 'git clone https://${Env:CI_GITLAB_USERNAME}:${Env:CI_GITLAB_TOKEN}@git-server.teknic.com/DevelopmentGroup/DevTools.git -b $DEV_TOOLS_VERSION'
+    - 'DevTools\Teknic.Tools.RepoDependencies\bin\Teknic.Tools.RepoDependencies.exe clone "$CI_PROJECT_URL" -f -a -p -b "$CI_COMMIT_SHA"'
+  artifacts: 
+    paths:
+      - .\
+    expire_in: 1 hour
+
+# Builds the examples
+build:
+  stage: build
+  tags:
+    - visualstudio2019
+  needs:
+    - job: clone_step
+      artifacts: true
+  script:
+    - 'cd $SOLUTION_DIR'
+    - 'MSBuild.exe Examples-vs2015.sln -t:Rebuild -p:Configuration=$BUILD_CONFIGURATION -p:Platform=$BUILD_PLATFORM'
+
+# This step verifies that all of the dependent repositories are on develop or
+# master branches, if they are not the pipeline will fail and the output will
+# list all of the branches that are not setup correctly
+# This step runs for all non-release/non-master branches
+check_release_step:
+  stage: check_release
+  tags:
+    - visualstudio2019
+  needs: []
+  script:
+    - 'Remove-Item .\DevTools* -Recurse -Force'
+    - 'git clone https://${Env:CI_GITLAB_USERNAME}:${Env:CI_GITLAB_TOKEN}@git-server.teknic.com/DevelopmentGroup/DevTools.git -b $DEV_TOOLS_VERSION'
+    - 'DevTools\Teknic.Tools.RepoDependencies\bin\Teknic.Tools.RepoDependencies.exe clone "$CI_PROJECT_URL" -f -a -p -b "$CI_COMMIT_SHA"'
+    - 'cd $SOLUTION_DIR'
+    - '..\DevTools\Teknic.Tools.RepoDependencies\bin\Teknic.Tools.RepoDependencies.exe checkRelease -f'
+  rules:
+    - if: '$CI_COMMIT_REF_NAME =~ /[Rr]elease/'
+      when: never
+    - if: '$CI_COMMIT_REF_NAME =~ /[Hh]ot[Ff]ix/'
+      when: never
+    - if: '$CI_COMMIT_REF_NAME =~ /[Mm]aster/'
+      when: never
+    - when: always
+
+# This step verifies that all of the dependent repositories are on master
+# branches, if they are not the pipeline will fail and the output will list all
+# of the branches that are not setup correctly
+# This step runs for all release/master branches
+check_release_master_step:
+  stage: check_release
+  tags:
+    - visualstudio2019
+  needs: []
+  script:
+    - 'Remove-Item .\DevTools* -Recurse -Force'
+    - 'git clone https://${Env:CI_GITLAB_USERNAME}:${Env:CI_GITLAB_TOKEN}@git-server.teknic.com/DevelopmentGroup/DevTools.git -b $DEV_TOOLS_VERSION'
+    - 'DevTools\Teknic.Tools.RepoDependencies\bin\Teknic.Tools.RepoDependencies.exe clone "$CI_PROJECT_URL" -f -p -b "$CI_COMMIT_SHA"'
+    - 'cd $SOLUTION_DIR'
+    - '..\DevTools\Teknic.Tools.RepoDependencies\bin\Teknic.Tools.RepoDependencies.exe checkRelease -m -f'
+  rules:
+    - if: '$CI_COMMIT_REF_NAME =~ /[Mm]aster/'
+      when: always
+    - if: '$CI_COMMIT_REF_NAME =~ /[Rr]elease/'
+      when: always
+    - if: '$CI_COMMIT_REF_NAME =~ /[Hh]ot[Ff]ix/'
+      when: always
