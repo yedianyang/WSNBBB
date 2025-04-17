@@ -5,7 +5,7 @@
 
 EXEC_NAME := "motion_example"
 INCLUDE_DIR := "~/src/Teknic/inc/inc-pub"
-LIBS := -lsFoundation20 -lpthread
+LIBS := -lsFoundation20 -lpthread -lusb-1.0
 CC := g++
 OPTIMIZATION := -O3
 DEBUG_OPTIMIZATION := -O0
