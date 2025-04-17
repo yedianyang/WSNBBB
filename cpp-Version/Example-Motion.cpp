@@ -218,6 +218,80 @@ int main(int argc, char *argv[])
 				}
 			}
 
+			///////////////////////////////////////////////////////////////////////////////////////
+			// Original code for executing 10 rev moves sequentially on each axis
+			//////////////////////////////////////////////////////////////////////////////////////
+			/*
+			for (size_t i = 0; i < NUM_MOVES; i++)
+			{
+				auto start = std::chrono::high_resolution_clock::now();
+				// for (size_t iNode = 0; iNode < myPort.NodeCount(); iNode++) {
+				for (size_t iNode = 0; iNode < 1; iNode++)
+				{
+					// Create a shortcut reference for a node
+					INode &theNode = myPort.Nodes(iNode);
+					theNode.Info.Ex.Parameter(98, 1);
+					theNode.Motion.MoveWentDone(); // Clear the rising edge Move done register
+
+					theNode.AccUnit(INode::RPM_PER_SEC);		   // Set the units for Acceleration to RPM/SEC
+					theNode.VelUnit(INode::RPM);				   // Set the units for Velocity to RPM
+					theNode.Motion.AccLimit = ACC_LIM_RPM_PER_SEC; // Set Acceleration Limit (RPM/Sec)
+					theNode.Motion.VelLimit = VEL_LIM_RPM;		   // Set Velocity Limit (RPM)
+
+					printf("%d times Moving Node \t%zi \n", i, iNode);
+					// theNode.Motion.MovePosnStart(MOVE_DISTANCE_CNTS);			//Execute 000 encoder count move
+
+					if (i % 2 != 0)
+					{
+						theNode.Motion.Adv.MovePosnAsymStart(i * 30, true);//, true);
+					}
+					else
+					{
+						theNode.Motion.Adv.MovePosnAsymStart(1000, true);//, true);
+					}
+
+					theNode.Motion.MovePosnStart(35000, true);//, true);
+
+					//sleep(0.1);
+					// printf("%f estimated time.\n", theNode.Motion.MovePosnStart(10000, true, true));
+					printf("Node %d has already been moved, current position is: \t%8.0f \n", iNode, theNode.Motion.PosnMeasured.Value());
+					// double timeout = myMgr->TimeStampMsec() + theNode.Motion.MovePosnDurationMsec(MOVE_DISTANCE_CNTS) + 100;			//define a timeout in case the node is unable to enable
+
+					// while (!theNode.Motion.MoveIsDone()) {
+					// 	if (myMgr->TimeStampMsec() > timeout) {
+					//         if (IsBusPowerLow(theNode)) {
+					//             printf("Error: Bus Power low. Make sure 75V supply is powered on.\n");
+					//             msgUser("Press any key to continue.");
+					//             return -1;
+					//         }
+					// 		printf("Error: Timed out waiting for move to complete\n");
+					// 		msgUser("Press any key to continue."); //pause so the user can see the error message; waits for user to press a key
+					// 		return -2;
+					// 	}
+					// }
+					// printf("Node \t%zi Move Done\n", iNode);
+				} // for each node
+
+				//---------------------------------- Code for get breat time-------------------
+				// auto now = std::chrono::system_clock::now();
+				// std::time_t now_time_t = std::chrono::system_clock::to_time_t(now);
+				// std::tm *now_tm = std::localtime(&now_time_t);
+				// std::cout << "Current time: " << std::ctime(&now_time_t);
+				// char buffer[80];
+				// std::strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", now_tm);
+				// auto since_epoch = now.time_since_epoch();
+				// auto seconds = std::chrono::duration_cast<std::chrono::seconds>(since_epoch);
+				// auto milliseconds = std::chrono::duration_cast<std::chrono::milliseconds>(since_epoch - seconds);
+
+				auto end = std::chrono::high_resolution_clock::now();
+				auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+				printf("Move Duration is: ", duration);
+
+			} // for each move
+
+			sleep(1);
+			printf("Node %d has already been moved, current position is: \t%8.0f \n", 0, myPort.Nodes(0).Motion.PosnMeasured.Value());
+			*/
 
 			//////////////////////////////////////////////////////////////////////////////////////////////
 			// After moves have completed Disable node, and close ports
