@@ -1,26 +1,41 @@
-# 编译器设置
-CXX = g++
-CXXFLAGS = -std=c++11 -Wall -Wextra
+# Example Project Makefile
+# Example-Motion
+#
+# Creates an executable in this directory called motion_example
 
-# 源文件和目标文件
-SRCS = Example-Motion.cpp
-OBJS = $(SRCS:.cpp=.o)
-TARGET = motion_example
+EXEC_NAME := "motion_example"
+INCLUDE_DIR := "~/src/Teknic/inc/inc-pub"
+LIBS := -lsFoundation20 -lpthread
+CC := g++
+OPTIMIZATION := -O3
+DEBUG_OPTIMIZATION := -O0
+CXXFLAGS := -I$(INCLUDE_DIR) $(OPTIMIZATION)
+DEBUG_CXXFLAGS := $(CXXFLAGS) -Wall -Wextra -pedantic -g3 $(DEBUG_OPTIMIZATION)
 
-# 默认目标
-all: $(TARGET)
+# Specify source files here
+ALL_SRC_FILES := $(wildcard *.cpp)
+ALL_OBJS := $(patsubst %.cpp,%.o,$(ALL_SRC_FILES))
 
-# 编译规则
+# Default target
+all: $(EXEC_NAME)
+
+# Generic rule to compile a CPP file into an object
 %.o: %.cpp
-	$(CXX) $(CXXFLAGS) -c $< -o $@
+	$(CXX) -c $(CXXFLAGS) -o "$@" $<
 
-# 链接规则
-$(TARGET): $(OBJS)
-	$(CXX) $(CXXFLAGS) -o $@ $^
+$(EXEC_NAME): $(ALL_OBJS)
+    ifneq ($(RPATH),)
+	$(CC) -L$(RPATH) -Wl,-rpath=$(RPATH) -o $(EXEC_NAME) $(ALL_OBJS) $(LIBS)
+    else
+	$(CC) -o $(EXEC_NAME) $(ALL_OBJS) $(LIBS)
+    endif
 
-# 清理规则
+# Remove all object files
+.PHONY: clean
 clean:
-	rm -f $(OBJS) $(TARGET)
+	-find . -type f -name "*.o" -delete
 
-# 伪目标
-.PHONY: all clean 
+# Sayonara. Viciously destroys all build artifacts, including the executable.
+.PHONY: real_clean
+real_clean: clean
+	-rm $(EXEC_NAME) 

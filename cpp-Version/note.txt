@@ -18,8 +18,3 @@ project_root/
 │
 ├── Makefile                     # 编译配置
 └── README.md                    # 项目说明
-
-
-
-
-quick note-2025-04-16 明天的工作 0.把example中x轴的功能抽象为一个类 1.是把inkling的控制线程接入 2.加入实时读取current position的功能 3.研究关于速度与加速度的限制
