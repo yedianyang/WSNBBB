@@ -8,7 +8,6 @@
 #include <thread>
 #include <mutex>
 #include <atomic>
-#include "MotorAxis.h"
 
 using namespace sFnd;
 
@@ -71,19 +70,24 @@ int main(int argc, char *argv[])
 	// otherwise the catch loop is skipped over
 	try
 	{
+
 		SysManager::FindComHubPorts(comHubPorts);
 		printf("Found %d SC Hubs\n", comHubPorts.size());
 
 		for (portCount = 0; portCount < comHubPorts.size() && portCount < NET_CONTROLLER_MAX; portCount++)
 		{
+
 			myMgr->ComHubPort(portCount, comHubPorts[portCount].c_str()); // define the first SC Hub port (port 0) to be associated
 																		  //  with COM portnum (as seen in device manager)
 		}
 
 		if (portCount < 0)
 		{
+
 			printf("Unable to locate SC hub port\n");
+
 			msgUser("Press any key to continue."); // pause so the user can see the error message; waits for user to press a key
+
 			return -1; // This terminates the main program
 		}
 		// printf("\n I will now open port \t%i \n \n", portnum);
@@ -104,56 +108,138 @@ int main(int argc, char *argv[])
 				// Create a shortcut reference for a node
 				INode &theNode = myPort.Nodes(iNode);
 
-				// 创建MotorAxis实例
-				MotorAxis motorAxis(theNode, *myMgr);
-				
-				// 初始化电机
-				if (!motorAxis.Initialize()) {
-					printf("Failed to initialize motor\n");
-					continue;
+				theNode.EnableReq(false); // Ensure Node is disabled before loading config file
+
+				myMgr->Delay(200);
+
+				// theNode.Setup.ConfigLoad("Config File path");
+
+				printf("   Node[%d]: type=%d\n", int(iNode), theNode.Info.NodeType());
+				printf("            userID: %s\n", theNode.Info.UserID.Value());
+				printf("        FW version: %s\n", theNode.Info.FirmwareVersion.Value());
+				printf("          Serial #: %d\n", theNode.Info.SerialNumber.Value());
+				printf("             Model: %s\n", theNode.Info.Model.Value());
+
+				// The following statements will attempt to enable the node.  First,
+				//  any shutdowns or NodeStops are cleared, finally the node is enabled
+				theNode.Status.AlertsClear();	// Clear Alerts on node
+				theNode.Motion.NodeStopClear(); // Clear Nodestops on Node
+				theNode.EnableReq(true);		// Enable node
+				// At this point the node is enabled
+				printf("Node \t%zi enabled\n", iNode);
+				double timeout = myMgr->TimeStampMsec() + TIME_TILL_TIMEOUT; // define a timeout in case the node is unable to enable
+																			 // This will loop checking on the Real time values of the node's Ready status
+				while (!theNode.Motion.IsReady())
+				{
+					if (myMgr->TimeStampMsec() > timeout)
+					{
+						if (IsBusPowerLow(theNode))
+						{
+							printf("Error: Bus Power low. Make sure 75V supply is powered on.\n");
+							msgUser("Press any key to continue.");
+							return -1;
+						}
+						printf("Error: Timed out waiting for Node %d to enable\n", iNode);
+						msgUser("Press any key to continue."); // pause so the user can see the error message; waits for user to press a key
+						return -2;
+					}
 				}
-				
-				// 执行归零
-				if (!motorAxis.Home()) {
-					printf("Failed to home motor\n");
-					continue;
+
+				// Enable move interruption capability
+				theNode.Info.Ex.Parameter(98, 1);
+				theNode.Motion.MoveWentDone();
+
+				// At this point the Node is enabled, and we will now check to see if the Node has been homed
+				// Check the Node to see if it has already been homed,
+				if (theNode.Motion.Homing.HomingValid())
+				{
+					if (theNode.Motion.Homing.WasHomed())
+					{
+						printf("Node %d has already been homed, current position is: \t%8.0f \n", iNode, theNode.Motion.PosnMeasured.Value());
+						printf("Rehoming Node... \n");
+					}
+					else
+					{
+						printf("Node [%d] has not been homed.  Homing Node now...\n", iNode);
+					}
+					// Now we will home the Node
+					theNode.Motion.Homing.Initiate();
+
+					timeout = myMgr->TimeStampMsec() + TIME_TILL_TIMEOUT; // define a timeout in case the node is unable to enable
+																		  //  Basic mode - Poll until disabled
+					while (!theNode.Motion.Homing.WasHomed())
+					{
+						if (myMgr->TimeStampMsec() > timeout)
+						{
+							if (IsBusPowerLow(theNode))
+							{
+								printf("Error: Bus Power low. Make sure 75V supply is powered on.\n");
+								msgUser("Press any key to continue.");
+								return -1;
+							}
+							printf("Node did not complete homing:  \n\t -Ensure Homing settings have been defined through ClearView. \n\t -Check for alerts/Shutdowns \n\t -Ensure timeout is longer than the longest possible homing move.\n");
+							msgUser("Press any key to continue."); // pause so the user can see the error message; waits for user to press a key
+							return -2;
+						}
+					}
+					printf("Node completed homing\n");
 				}
-
-				// 主循环
-				while (true) {
-					printf("\nEnter position (or 'q' to quit): ");
-					std::string input;
-					std::getline(std::cin, input);
-
-					if (input == "q" || input == "Q") {
-						break;
-					}
-
-					try {
-						int position = std::stoi(input) * 1000;
-						
-						// 使用MotorAxis类控制运动
-						std::thread motorThread([&motorAxis, position]() {
-							motorAxis.MoveToPosition(position);
-						});
-						motorThread.detach();
-					}
-					catch (const std::invalid_argument&) {
-						printf("Invalid input. Please enter a valid number.\n");
-					}
-					catch (const std::out_of_range&) {
-						printf("Input number is too large. Please enter a smaller number.\n");
-					}
+				else
+				{
+					printf("Node[%d] has not had homing setup through ClearView.  The node will not be homed.\n", iNode);
 				}
 			}
+
+			///////////////////////////////////////////////////////////////////////////////////////
+			// At this point we will execute moves based on user input
+			//////////////////////////////////////////////////////////////////////////////////////
+
+			while (true) {
+				printf("\nEnter position (or 'q' to quit): ");
+				std::string input;
+				std::getline(std::cin, input);
+
+				if (input == "q" || input == "Q") {
+					break;
+				}
+
+				try {
+					int position = std::stoi(input) * 1000;
+					
+					// Start motor movement in a separate thread
+					std::thread motorThread(moveMotor, std::ref(myPort.Nodes(0)), position);
+					motorThread.detach(); // Detach the thread to let it run independently
+				}
+				catch (const std::invalid_argument&) {
+					printf("Invalid input. Please enter a valid number.\n");
+				}
+				catch (const std::out_of_range&) {
+					printf("Input number is too large. Please enter a smaller number.\n");
+				}
+			}
+
+
+			//////////////////////////////////////////////////////////////////////////////////////////////
+			// After moves have completed Disable node, and close ports
+			//////////////////////////////////////////////////////////////////////////////////////////////
+			printf("Disabling nodes, and closing port\n");
+			// Disable Nodes
+
+			// for (size_t iNode = 0; iNode < myPort.NodeCount(); iNode++) {
+			// 	// Create a shortcut reference for a node
+			// 	myPort.Nodes(iNode).EnableReq(false);
+			// }
 		}
 	}
 	catch (mnErr &theErr)
 	{
-		printf("Caught error: addr=%d, err=0x%08x\nmsg=%s\n", 
-			   theErr.TheAddr, theErr.ErrorCode, theErr.ErrorMsg);
-		msgUser("Press any key to continue.");
-		return 0;
+		printf("Failed to disable Nodes n\n");
+		// This statement will print the address of the error, the error code (defined by the mnErr class),
+		// as well as the corresponding error message.
+		printf("Caught error: addr=%d, err=0x%08x\nmsg=%s\n", theErr.TheAddr, theErr.ErrorCode, theErr.ErrorMsg);
+
+		msgUser("Press any key to continue."); // pause so the user can see the error message; waits for user to press a key
+		return 0;							   // This terminates the main program
 	}
 
 	// Close down the ports
@@ -162,4 +248,3 @@ int main(int argc, char *argv[])
 	msgUser("Press any key to continue."); // pause so the user can see the error message; waits for user to press a key
 	return 0;							   // End program
 }
-

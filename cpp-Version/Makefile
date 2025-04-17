@@ -3,7 +3,7 @@ CXX = g++
 CXXFLAGS = -std=c++11 -Wall -Wextra
 
 # 源文件和目标文件
-SRCS = Example-Motion.cpp MotorAxis.cpp
+SRCS = Example-Motion.cpp
 OBJS = $(SRCS:.cpp=.o)
 TARGET = motion_example
 
