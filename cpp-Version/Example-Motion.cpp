@@ -42,6 +42,7 @@ bool IsBusPowerLow(INode &theNode)
 #define TIME_TILL_TIMEOUT 10000 // The timeout used for homing(ms)
 
 void moveMotor(INode& theNode, int position) {
+	auto start_time = std::chrono::high_resolution_clock::now();
 	std::lock_guard<std::mutex> lock(motorMutex);
 	
 	theNode.AccUnit(INode::RPM_PER_SEC);
@@ -52,27 +53,40 @@ void moveMotor(INode& theNode, int position) {
 	printf("Moving Node to position: %d\n", position);
 	theNode.Motion.MovePosnStart(position, true);
 	
-	// Don't wait for move to complete, just start the move and return
-	// The next move command will interrupt this one if needed
+	auto end_time = std::chrono::high_resolution_clock::now();
+	auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
+	printf("Motor move execution time: %lld us\n", duration.count());
 }
+
 
 void inklingDataThread(WacomInkling& inkling, IPort& myPort) {
 	while (inklingRunning) {
+		auto loop_start = std::chrono::high_resolution_clock::now();
+		
 		InklingData data;
 		if (inkling.getData(data)) {
 			// Convert inkling X position to motor position
-			// Assuming inkling X range is 0-10000 and motor position is in counts
-			int motorPosition = static_cast<int>(data.x * 10);  // Scale factor may need adjustment
+			int motorPosition = static_cast<int>(data.x * 10);
 			
 			// Start motor movement with inkling X position
-			std::thread motorThread(moveMotor, std::ref(myPort.Nodes(0)), motorPosition);
+			std::thread motorThread([&myPort, motorPosition]() {
+				moveMotor(myPort.Nodes(0), motorPosition);
+			});
 			motorThread.detach();
 			
-			// Print position for debugging
-			printf("Inkling Position: X=%d, Y=%d, Pressed=%d\n", 
-				   data.x, data.y, data.pressed);
+			// Print position and timestamp for debugging
+			auto current_time = std::chrono::system_clock::now();
+			auto time_since_epoch = current_time.time_since_epoch();
+			auto milliseconds = std::chrono::duration_cast<std::chrono::milliseconds>(time_since_epoch).count();
+			printf("[%lld ms] Inkling Position: X=%d, Y=%d, Pressed=%d\n", 
+				   milliseconds, data.x, data.y, data.pressed);
 		}
-		std::this_thread::sleep_for(std::chrono::milliseconds(10));  // Small delay to prevent CPU overload
+		
+		auto loop_end = std::chrono::high_resolution_clock::now();
+		auto loop_duration = std::chrono::duration_cast<std::chrono::microseconds>(loop_end - loop_start);
+		printf("Inkling loop execution time: %lld us\n", loop_duration.count());
+		
+		std::this_thread::sleep_for(std::chrono::milliseconds(0.5));
 	}
 }
 
@@ -222,8 +236,11 @@ int main(int argc, char *argv[])
 
 			// Initialize Wacom Inkling
 			WacomInkling inkling;
-			
+
+			printf("Attempting to release any existing Inkling connection...\n");
+			inkling.stop();  // This should release any existing connection
 			// Check if device is connected and initialize
+
 			printf("Checking device connection...\n");
 			if (!inkling.initialize()) {
 				printf("Failed to initialize Wacom Inkling: %s\n", inkling.getLastError().c_str());
