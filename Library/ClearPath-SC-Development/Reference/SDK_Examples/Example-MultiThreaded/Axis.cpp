@@ -20,6 +20,10 @@
 #if defined(_WIN32)||defined(_WIN64)
 #include <windows.h>
 #endif
+#include <thread>
+#include <mutex>
+#include <atomic>
+#include <chrono>
 //																			   *
 //******************************************************************************
 
@@ -40,10 +44,13 @@
 //	DESCRIPTION:
 //		Constructor for the axis state
 //
-Axis::Axis(INode *node) : 
+Axis::Axis(SysManager& SysMgr, INode *node) : 
 	m_node(node), 
 	m_moveCount(0), 
-	m_quitting(false) {
+	m_positionWrapCount(0), 
+	m_quitting(false), 
+	m_sysMgr(SysMgr), 
+	m_monitoring(false) {
 
 	// Save the config file before starting
 	// This would typically be performed right after tuning each axis.
@@ -65,6 +72,8 @@ Axis::Axis(INode *node) :
 	if (m_node->Setup.AccessLevelIsFull())
 		m_node->Setup.ConfigSave(m_configFile);
 
+	m_monitoring = true;
+	m_positionThread = thread(&Axis::PositionMonitor, this);
 };
 //																			   *
 //******************************************************************************
@@ -77,6 +86,10 @@ Axis::Axis(INode *node) :
 //		Destructor for the axis state
 //
 Axis::~Axis(){
+	m_monitoring = false;
+	if (m_positionThread.joinable()) {
+		m_positionThread.join();
+	}
 	// Print out the move statistics one last time
 	PrintStats();
 
@@ -158,6 +171,8 @@ void Axis::Enable(){
 				}
 		}
 
+		m_monitoring = true;
+		m_positionThread = thread(&Axis::PositionMonitor, this);
 	}
 }
 //																			   *
@@ -419,3 +434,23 @@ void Axis::AxisMain(Supervisor *theSuper){
 };
 //																			   *
 //******************************************************************************
+
+//******************************************************************************
+//	NAME																	   *
+//		Axis::PositionMonitor
+//
+//	DESCRIPTION:
+//		Position monitoring thread function
+//
+void Axis::PositionMonitor() {
+	while (m_monitoring) {
+		{
+			lock_guard<mutex> lock(m_positionMutex);
+			m_node->Motion.PosnMeasured.Refresh();
+			double position = m_node->Motion.PosnMeasured.Value();
+			printf("\rNode [%d] Position: %.2f", m_node->Info.Ex.Addr(), position);
+			fflush(stdout);
+		}
+		this_thread::sleep_for(chrono::milliseconds(50));
+	}
+}
