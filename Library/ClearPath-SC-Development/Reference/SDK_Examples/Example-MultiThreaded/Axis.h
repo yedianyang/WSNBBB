@@ -87,6 +87,7 @@ private:
 	mgMoveProfiledInfo m_move;
 	::uint32_t m_moveCount;
 	::int32_t m_moveTimeoutMs;
+	::int32_t m_positionWrapCount;  // Add position wrap counter
 
 	bool m_quitting;			// Axis quitting
 
