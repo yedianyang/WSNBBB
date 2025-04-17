@@ -235,26 +235,11 @@ int main(int argc, char *argv[])
 			//////////////////////////////////////////////////////////////////////////////////////
 
 			// Initialize Wacom Inkling
-<<<<<<< HEAD
 			printf("Attempting to release any existing Inkling connection...\n");
 			inkling.release(); 
 			std::this_thread::sleep_for(std::chrono::milliseconds(500));  // Give some time for the release to complete
 
-
-			printf("Attempting to release any existing Inkling connection...\n");
-			inkling.stop();  // This should release any existing connection
 			// Check if device is connected and initialize
-
-=======
-			WacomInkling inkling;
-			
-			// First try to release any existing connection
-			printf("Attempting to release any existing Inkling connection...\n");
-			inkling.release();  // Release any existing connection
-			std::this_thread::sleep_for(std::chrono::milliseconds(500));  // Give some time for the release to complete
-			
-			// Now try to initialize
->>>>>>> c6595cc107a2929664ed275b9794f38aa339d92c
 			printf("Checking device connection...\n");
 			if (!inkling.initialize()) {
 				printf("Failed to initialize Wacom Inkling: %s\n", inkling.getLastError().c_str());
