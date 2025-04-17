@@ -5,8 +5,15 @@
 #include <unistd.h> // Header file for sleep().
 #include <chrono>
 #include "pubSysCls.h"
+#include <thread>
+#include <mutex>
+#include <atomic>
 
 using namespace sFnd;
+
+// Global variables for motor control
+std::atomic<bool> isMoving(false);
+std::mutex motorMutex;
 
 // Send message and wait for newline
 void msgUser(const char *msg)
@@ -27,10 +34,25 @@ bool IsBusPowerLow(INode &theNode)
 //*********************************************************************************
 
 #define ACC_LIM_RPM_PER_SEC 10000
-#define VEL_LIM_RPM 1200
+#define VEL_LIM_RPM 1000
 #define MOVE_DISTANCE_CNTS 5000
 #define NUM_MOVES 100
 #define TIME_TILL_TIMEOUT 10000 // The timeout used for homing(ms)
+
+void moveMotor(INode& theNode, int position) {
+	std::lock_guard<std::mutex> lock(motorMutex);
+	
+	theNode.AccUnit(INode::RPM_PER_SEC);
+	theNode.VelUnit(INode::RPM);
+	theNode.Motion.AccLimit = ACC_LIM_RPM_PER_SEC;
+	theNode.Motion.VelLimit = VEL_LIM_RPM;
+
+	printf("Moving Node to position: %d\n", position);
+	theNode.Motion.MovePosnStart(position, true);
+	
+	// Don't wait for move to complete, just start the move and return
+	// The next move command will interrupt this one if needed
+}
 
 int main(int argc, char *argv[])
 {
@@ -122,6 +144,11 @@ int main(int argc, char *argv[])
 						return -2;
 					}
 				}
+
+				// Enable move interruption capability
+				theNode.Info.Ex.Parameter(98, 1);
+				theNode.Motion.MoveWentDone();
+
 				// At this point the Node is enabled, and we will now check to see if the Node has been homed
 				// Check the Node to see if it has already been homed,
 				if (theNode.Motion.Homing.HomingValid())
@@ -164,9 +191,37 @@ int main(int argc, char *argv[])
 			}
 
 			///////////////////////////////////////////////////////////////////////////////////////
-			// At this point we will execute 10 rev moves sequentially on each axis
+			// At this point we will execute moves based on user input
 			//////////////////////////////////////////////////////////////////////////////////////
 
+			while (true) {
+				printf("\nEnter position (or 'q' to quit): ");
+				std::string input;
+				std::getline(std::cin, input);
+
+				if (input == "q" || input == "Q") {
+					break;
+				}
+
+				try {
+					int position = std::stoi(input) * 1000;
+					
+					// Start motor movement in a separate thread
+					std::thread motorThread(moveMotor, std::ref(myPort.Nodes(0)), position);
+					motorThread.detach(); // Detach the thread to let it run independently
+				}
+				catch (const std::invalid_argument&) {
+					printf("Invalid input. Please enter a valid number.\n");
+				}
+				catch (const std::out_of_range&) {
+					printf("Input number is too large. Please enter a smaller number.\n");
+				}
+			}
+
+			///////////////////////////////////////////////////////////////////////////////////////
+			// Original code for executing 10 rev moves sequentially on each axis
+			//////////////////////////////////////////////////////////////////////////////////////
+			/*
 			for (size_t i = 0; i < NUM_MOVES; i++)
 			{
 				auto start = std::chrono::high_resolution_clock::now();
@@ -192,7 +247,6 @@ int main(int argc, char *argv[])
 					}
 					else
 					{
-
 						theNode.Motion.Adv.MovePosnAsymStart(1000, true);//, true);
 					}
 
@@ -237,6 +291,7 @@ int main(int argc, char *argv[])
 
 			sleep(1);
 			printf("Node %d has already been moved, current position is: \t%8.0f \n", 0, myPort.Nodes(0).Motion.PosnMeasured.Value());
+			*/
 
 			//////////////////////////////////////////////////////////////////////////////////////////////
 			// After moves have completed Disable node, and close ports
