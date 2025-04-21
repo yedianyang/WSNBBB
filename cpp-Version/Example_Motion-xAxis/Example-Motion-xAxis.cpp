@@ -18,8 +18,11 @@ std::atomic<bool> isMoving(false);
 std::mutex motorMutex;
 std::atomic<bool> inklingRunning(true);
 
-// Atomic struct for thread-safe access
-std::atomic<InklingState> latestInklingState{InklingState{0, 0, false, 0}};
+// 使用独立的原子变量
+std::atomic<int> latestInklingX(0);
+std::atomic<int> latestInklingY(0);
+std::atomic<bool> latestInklingPressed(false);
+std::atomic<long long> latestInklingLoopTime(0);
 std::atomic<long long> motorLoopTime(0);
 
 // Send message and wait for newline
@@ -78,46 +81,52 @@ void inklingDataThread(WacomInkling& inkling) {
 		
 		InklingData data;
 		if (inkling.getData(data)) {
-			// Store latest data
-			latestInklingState.store(InklingState{data.x, data.y, data.pressed,
+			// 分别存储各个数据
+			latestInklingX.store(data.x);
+			latestInklingY.store(data.y);
+			latestInklingPressed.store(data.pressed);
+			latestInklingLoopTime.store(
 				std::chrono::duration_cast<std::chrono::microseconds>(
 					std::chrono::high_resolution_clock::now() - loop_start).count()
-			});
-		}	
+			);
+		}
+		
 		std::this_thread::sleep_for(std::chrono::milliseconds(1));
 	}
 }
 
 void displayDataThread() {
 	while (inklingRunning) {
+		// 分别读取各个数据
+		int x = latestInklingX.load();
+		int y = latestInklingY.load();
+		bool pressed = latestInklingPressed.load();
+		long long loopTime = latestInklingLoopTime.load();
+		
 		// Clear screen and print watch-like display
 		clearScreen();
 		printf("┌─────────────────────────────────────────────┐\n");
 		printf("│              System Status                  │\n");
 		printf("├─────────────────────────────────────────────┤\n");
 		printf("│ Inkling Position:                           │\n");
-		printf("│   X: %-4d  Y: %-4d  Pressed: %d              │\n", 
-			   latestInklingState.load().x, 
-			   latestInklingState.load().y, 
-			   latestInklingState.load().pressed);
+		printf("│   X: %-4d  Y: %-4d  Pressed: %d              │\n", x, y, pressed);
 		printf("├─────────────────────────────────────────────┤\n");
 		printf("│ Motor Status:                               │\n");
 		printf("│   Current Position: n/a                  │\n");
-		printf("│   Target Position: %-8d                  │\n", latestInklingState.load().x * 10);
+		printf("│   Target Position: %-8d                  │\n", x * 10);
 		printf("├─────────────────────────────────────────────┤\n");
 		printf("│ Performance Metrics:                        │\n");
-		printf("│   Inkling Loop Time: %-6lld us             │\n", latestInklingState.load().loopTime);
-		printf("│   Motor Loop Time: %-6lld us             │\n", motorLoopTime.load());
+		printf("│   Inkling Loop Time: %-6lld us             │\n", loopTime);
 		printf("└─────────────────────────────────────────────┘\n");
 		
-		std::this_thread::sleep_for(std::chrono::milliseconds(33)); // ~30 FPS
+		std::this_thread::sleep_for(std::chrono::milliseconds(32)); // ~30 FPS
 	}
 }
 
 void motorControlThread(IPort& myPort) {
 	while (inklingRunning) {
-		InklingState currentState = latestInklingState.load();
-		int motorPosition = currentState.x * 10;
+		int currentX = latestInklingX.load();
+		int motorPosition = currentX * 10;
 		
 		// 新实现：直接在当前线程中调用 moveMotor
 		moveMotor(myPort.Nodes(0), motorPosition);
