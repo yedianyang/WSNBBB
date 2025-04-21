@@ -261,6 +261,7 @@ int main(int argc, char *argv[])
 					printf("3. No other application is using the device\n");
 					printf("4. Try unplugging and replugging the device\n");
 					return -1;
+				}
 			}
 			
 			printf("Wacom Inkling reset successfully\n");
