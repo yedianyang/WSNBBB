@@ -18,11 +18,13 @@ void WacomInkling::releaseDevice() {
         libusb_exit(usbContext);
         usbContext = nullptr;
     }
+   
 }
 
 void WacomInkling::release() {
     stop();
     releaseDevice();
+    printf("Wacom Inkling device released\n");
 }
 
 bool WacomInkling::initialize() {

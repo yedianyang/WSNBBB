@@ -91,7 +91,7 @@ void inklingDataThread(WacomInkling& inkling, IPort& myPort) {
 			printf("│   X: %-4d  Y: %-4d  Pressed: %d              │\n", data.x, data.y, data.pressed);
 			printf("├─────────────────────────────────────────────┤\n");
 			printf("│ Motor Status:                               │\n");
-			printf("│   Current Position: %-8d                  │\n", myPort.Nodes(0).Motion.PosnMeasured.Value());
+			printf("│   Current Position: n/a                  │\n");  //myPort.Nodes(0).Motion.PosnMeasured.Value());
 			printf("│   Target Position: %-8d                  │\n", motorPosition);
 			printf("├─────────────────────────────────────────────┤\n");
 			printf("│ Performance Metrics:                        │\n");
@@ -250,10 +250,25 @@ int main(int argc, char *argv[])
 			//////////////////////////////////////////////////////////////////////////////////////
 
 			// Initialize Wacom Inkling
-
 			WacomInkling inkling;
 			printf("Attempting to release any existing Inkling connection...\n");
-			inkling.release(); 
+			
+			// Try to release with retries
+			int retryCount = 0;
+			const int maxRetries = 3;
+			while (retryCount < maxRetries) {
+				try {
+					inkling.release();
+					break;
+				} catch (...) {
+					retryCount++;
+					if (retryCount < maxRetries) {
+						printf("Release attempt %d failed, retrying...\n", retryCount);
+						std::this_thread::sleep_for(std::chrono::milliseconds(500));
+					}
+				}
+			}
+			
 			std::this_thread::sleep_for(std::chrono::milliseconds(500));  // Give some time for the release to complete
 
 			// Check if device is connected and initialize
@@ -264,6 +279,7 @@ int main(int argc, char *argv[])
 				printf("1. Device is properly connected via USB\n");
 				printf("2. USB permissions are correctly set\n");
 				printf("3. No other application is using the device\n");
+				printf("4. Try unplugging and replugging the device\n");
 				return -1;
 			}
 			
