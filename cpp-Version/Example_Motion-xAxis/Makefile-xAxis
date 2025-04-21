@@ -16,7 +16,7 @@ ifeq ($(shell uname), Darwin)
 else ifeq ($(shell uname), Linux)
     # Linux (Raspberry Pi) specific settings
     INCLUDE_DIR := "~/src/Teknic/inc/inc-pub"
-    LIBS := -lsFoundation20 -lpthread -lusb-1.0
+    LIBS := -lsFoundation20 -lpthread -lusb-1.0 -latomic
     CXXFLAGS := -I$(INCLUDE_DIR) -I. $(OPTIMIZATION)
 else
     $(error Unsupported operating system)
