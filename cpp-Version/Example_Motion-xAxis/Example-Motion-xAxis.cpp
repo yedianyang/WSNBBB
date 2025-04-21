@@ -9,6 +9,7 @@
 #include <mutex>
 #include <atomic>
 #include "./WacomInkling.hpp"  // Add WacomInkling header
+#include <cstdlib>  // Add for system() call
 
 using namespace sFnd;
 
@@ -30,6 +31,15 @@ bool IsBusPowerLow(INode &theNode)
 	return theNode.Status.Power.Value().fld.InBusLoss;
 }
 
+// Function to clear the console screen
+void clearScreen() {
+    #ifdef _WIN32
+        system("cls");
+    #else
+        system("clear");
+    #endif
+}
+
 //*********************************************************************************
 // This program will load configuration files onto each node connected to the port, then executes
 // sequential repeated moves on each axis.
@@ -49,15 +59,13 @@ void moveMotor(INode& theNode, int position) {
 	theNode.VelUnit(INode::RPM);
 	theNode.Motion.AccLimit = ACC_LIM_RPM_PER_SEC;
 	theNode.Motion.VelLimit = VEL_LIM_RPM;
-
-	printf("Moving Node to position: %d\n", position);
+	
 	theNode.Motion.MovePosnStart(position, true);
 	
 	auto end_time = std::chrono::high_resolution_clock::now();
 	auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
 	printf("Motor move execution time: %lld us\n", duration.count());
 }
-
 
 void inklingDataThread(WacomInkling& inkling, IPort& myPort) {
 	while (inklingRunning) {
@@ -74,17 +82,24 @@ void inklingDataThread(WacomInkling& inkling, IPort& myPort) {
 			});
 			motorThread.detach();
 			
-			// Print position and timestamp for debugging
-			auto current_time = std::chrono::system_clock::now();
-			auto time_since_epoch = current_time.time_since_epoch();
-			auto milliseconds = std::chrono::duration_cast<std::chrono::milliseconds>(time_since_epoch).count();
-			printf("[%lld ms] Inkling Position: X=%d, Y=%d, Pressed=%d\n", 
-				   milliseconds, data.x, data.y, data.pressed);
+			// Clear screen and print watch-like display
+			clearScreen();
+			printf("┌─────────────────────────────────────────────┐\n");
+			printf("│              System Status                  │\n");
+			printf("├─────────────────────────────────────────────┤\n");
+			printf("│ Inkling Position:                           │\n");
+			printf("│   X: %-4d  Y: %-4d  Pressed: %d              │\n", data.x, data.y, data.pressed);
+			printf("├─────────────────────────────────────────────┤\n");
+			printf("│ Motor Status:                               │\n");
+			printf("│   Current Position: %-8d                  │\n", myPort.Nodes(0).Motion.PosnMeasured.Value());
+			printf("│   Target Position: %-8d                  │\n", motorPosition);
+			printf("├─────────────────────────────────────────────┤\n");
+			printf("│ Performance Metrics:                        │\n");
+			printf("│   Inkling Loop Time: %-6lld us             │\n", 
+				   std::chrono::duration_cast<std::chrono::microseconds>(
+					   std::chrono::high_resolution_clock::now() - loop_start).count());
+			printf("└─────────────────────────────────────────────┘\n");
 		}
-		
-		auto loop_end = std::chrono::high_resolution_clock::now();
-		auto loop_duration = std::chrono::duration_cast<std::chrono::microseconds>(loop_end - loop_start);
-		printf("Inkling loop execution time: %lld us\n", loop_duration.count());
 		
 		std::this_thread::sleep_for(std::chrono::milliseconds(1));
 	}
@@ -236,7 +251,7 @@ int main(int argc, char *argv[])
 
 			// Initialize Wacom Inkling
 
-			WacomInkling inkling;
+			
 			printf("Attempting to release any existing Inkling connection...\n");
 			inkling.release(); 
 			std::this_thread::sleep_for(std::chrono::milliseconds(500));  // Give some time for the release to complete
@@ -298,7 +313,7 @@ int main(int argc, char *argv[])
 	{
 		printf("Failed to disable Nodes n\n");
 		// This statement will print the address of the error, the error code (defined by the mnErr class),
-		// as well as the corresponding error message.
+		// as well as the corresponding error message.Inkling Position: X=1, Y=70, Pressed=0
 		printf("Caught error: addr=%d, err=0x%08x\nmsg=%s\n", theErr.TheAddr, theErr.ErrorCode, theErr.ErrorMsg);
 
 		msgUser("Press any key to continue."); // pause so the user can see the error message; waits for user to press a key
