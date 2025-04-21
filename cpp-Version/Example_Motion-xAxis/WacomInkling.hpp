@@ -8,6 +8,14 @@
 #include <queue>
 #include <condition_variable>
 
+// Struct to hold all Inkling data
+struct InklingState {
+    int x;
+    int y;
+    bool pressed;
+    long long loopTime;
+};
+
 struct InklingData {
     int x;
     int y;
