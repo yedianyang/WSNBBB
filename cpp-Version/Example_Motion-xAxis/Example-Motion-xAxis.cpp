@@ -251,7 +251,7 @@ int main(int argc, char *argv[])
 
 			// Initialize Wacom Inkling
 
-			
+			WacomInkling inkling;
 			printf("Attempting to release any existing Inkling connection...\n");
 			inkling.release(); 
 			std::this_thread::sleep_for(std::chrono::milliseconds(500));  // Give some time for the release to complete
