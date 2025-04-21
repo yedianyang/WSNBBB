@@ -27,6 +27,8 @@ void WacomInkling::release() {
     printf("Wacom Inkling device released\n");
 }
 
+
+
 bool WacomInkling::initialize() {
     try {
         // 先尝试释放可能存在的连接
@@ -153,4 +155,63 @@ bool WacomInkling::getLatestData(InklingData& data) {
 
 std::string WacomInkling::getLastError() const {
     return errorMessage;
+}
+
+bool WacomInkling::openDevice() {
+    if (deviceHandle) {
+        return true;
+    }
+    
+    deviceHandle = libusb_open_device_with_vid_pid(usbContext, WACOM_VENDOR_ID, WACOM_PRODUCT_ID);
+    if (!deviceHandle) {
+        errorMessage = "Failed to open device";
+        return false;
+    }
+    return true;
+}
+
+bool WacomInkling::reset() {
+    // Stop data acquisition if running
+    stop();
+    
+    // Release current device handle if exists
+    if (deviceHandle) {
+        libusb_close(deviceHandle);
+        deviceHandle = nullptr;
+    }
+    
+    // Initialize libusb context if not already done
+    if (!usbContext) {
+        int ret = libusb_init(&usbContext);
+        if (ret < 0) {
+            errorMessage = std::string("Failed to initialize libusb: ") + libusb_error_name(ret);
+            return false;
+        }
+    }
+    
+    // Open device
+    if (!openDevice()) {
+        return false;
+    }
+    
+    // Reset device
+    int ret = libusb_reset_device(deviceHandle);
+    if (ret != 0) {
+        errorMessage = std::string("Reset failed: ") + libusb_error_name(ret);
+        libusb_close(deviceHandle);
+        deviceHandle = nullptr;
+        return false;
+    }
+    
+    // Close and reopen device
+    libusb_close(deviceHandle);
+    deviceHandle = nullptr;
+    
+    if (!openDevice()) {
+        return false;
+    }
+    
+    // Reconfigure device
+    configureDevice();
+    return true;
 }

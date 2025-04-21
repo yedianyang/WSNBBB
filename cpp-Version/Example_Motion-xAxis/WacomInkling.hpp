@@ -49,6 +49,7 @@ private:
     void configureDevice();
     void dataLoop();
     void releaseDevice();
+    bool openDevice();
 
 public:
     WacomInkling();
@@ -59,6 +60,7 @@ public:
     void start();
     void stop();
     void release();
+    bool reset();
     
     // 数据访问
     bool getData(InklingData& data);

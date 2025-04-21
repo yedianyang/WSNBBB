@@ -251,39 +251,19 @@ int main(int argc, char *argv[])
 
 			// Initialize Wacom Inkling
 			WacomInkling inkling;
-			printf("Attempting to release any existing Inkling connection...\n");
-			
-			// First try to stop any running data acquisition
-			try {
-				inkling.stop();
-			} catch (...) {
-				printf("Warning: Could not stop data acquisition\n");
-			}
-			
-			// Then try to release the device
-			try {
-				inkling.release();
-				printf("Wacom Inkling device released\n");
-			} catch (...) {
-				printf("Warning: Could not properly release device\n");
-			}
-			
-			// Wait for device to be fully released
-			std::this_thread::sleep_for(std::chrono::seconds(1));
-			
-			// Check if device is connected and initialize
-			printf("Checking device connection...\n");
+			printf("Attempting to Initialize Wacom Inkling device...\n");
 			if (!inkling.initialize()) {
-				printf("Failed to initialize Wacom Inkling: %s\n", inkling.getLastError().c_str());
-				printf("Please check:\n");
-				printf("1. Device is properly connected via USB\n");
-				printf("2. USB permissions are correctly set\n");
-				printf("3. No other application is using the device\n");
-				printf("4. Try unplugging and replugging the device\n");
-				return -1;
+				if (!inkling.reset()) {
+					printf("Failed to reset Wacom Inkling: %s\n", inkling.getLastError().c_str());
+					printf("Please check:\n");
+					printf("1. Device is properly connected via USB\n");
+					printf("2. USB permissions are correctly set\n");
+					printf("3. No other application is using the device\n");
+					printf("4. Try unplugging and replugging the device\n");
+					return -1;
 			}
 			
-			printf("Wacom Inkling initialized successfully\n");
+			printf("Wacom Inkling reset successfully\n");
 			printf("Starting data acquisition...\n");
 			inkling.start();
 			printf("Data acquisition started\n");
