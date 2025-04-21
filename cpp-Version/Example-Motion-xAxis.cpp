@@ -86,7 +86,7 @@ void inklingDataThread(WacomInkling& inkling, IPort& myPort) {
 		auto loop_duration = std::chrono::duration_cast<std::chrono::microseconds>(loop_end - loop_start);
 		printf("Inkling loop execution time: %lld us\n", loop_duration.count());
 		
-		std::this_thread::sleep_for(std::chrono::milliseconds(0.5));
+		std::this_thread::sleep_for(std::chrono::milliseconds(1));
 	}
 }
 
