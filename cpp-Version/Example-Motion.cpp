@@ -40,8 +40,62 @@ bool IsBusPowerLow(INode &theNode)
 #define MOVE_DISTANCE_CNTS 5000
 #define NUM_MOVES 100
 #define TIME_TILL_TIMEOUT 10000 // The timeout used for homing(ms)
+#define TARGET_POSITION_X 960
+#define TARGET_POSITION_Y 960
 
-void moveMotor(INode& theNode, int position) {
+// 1. 创建一个结构体来管理电机状态
+struct MotorState {
+	int currentPosition;
+	int targetPosition;
+	bool isMoving;
+};
+
+// 2. 创建一个类来管理电机控制
+class MotorController {
+private:
+	IPort& port;
+	std::mutex motorMutex;
+	MotorState xAxis;
+	MotorState yAxis;
+	
+public:
+	MotorController(IPort& p) : port(p) {}
+	
+	void updatePositions(const InklingData& data) {
+		std::lock_guard<std::mutex> lock(motorMutex);
+		
+		// 更新X轴
+		xAxis.currentPosition = port.Nodes(0).Motion.PosnMeasured.Value();
+		xAxis.targetPosition = static_cast<int>((TARGET_POSITION_X - data.x) * (386.0/45.0));
+		
+		// // 更新Y轴
+		// yAxis.currentPosition = port.Nodes(1).Motion.PosnMeasured.Value();
+		// yAxis.targetPosition = static_cast<int>((TARGET_POSITION_Y - data.y) * (58.0/9.0));
+	}
+	
+	void moveMotors() {
+		std::lock_guard<std::mutex> lock(motorMutex);
+		
+		// 设置运动参数
+		for(int i = 0; i < 2; i++) {
+			INode& node = port.Nodes(i);
+			node.AccUnit(INode::RPM_PER_SEC);
+			node.VelUnit(INode::RPM);
+			node.Motion.AccLimit = ACC_LIM_RPM_PER_SEC;
+			node.Motion.VelLimit = VEL_LIM_RPM;
+		}
+		
+		// 执行运动
+		if(xAxis.currentPosition <= 45000 && xAxis.currentPosition >= 0) {
+			port.Nodes(0).Motion.MovePosnStart(xAxis.targetPosition, true);
+		}
+		// if(yAxis.currentPosition <= 45000 && yAxis.currentPosition >= 0) {
+		// 	port.Nodes(1).Motion.MovePosnStart(yAxis.targetPosition, true);
+		// }
+	}
+};
+
+void moveMotor(INode& theNode, int aimPositionRevolutionCnt) {
 	auto start_time = std::chrono::high_resolution_clock::now();
 	std::lock_guard<std::mutex> lock(motorMutex);
 	
@@ -50,8 +104,16 @@ void moveMotor(INode& theNode, int position) {
 	theNode.Motion.AccLimit = ACC_LIM_RPM_PER_SEC;
 	theNode.Motion.VelLimit = VEL_LIM_RPM;
 
-	printf("Moving Node to position: %d\n", position);
-	theNode.Motion.MovePosnStart(position, true);
+	// Get current position before move
+	double currentMotorPositionRevolutionCnt = theNode.Motion.PosnMeasured.Value();
+	printf("Current position before move: %8.0f\n", currentMotorPositionRevolutionCnt);
+
+
+
+	//if(currentMotorPositionRevolutionCnt <= 45000 && currentMotorPositionRevolutionCnt >= 0){
+	printf("Moving Node to position: %d\n", aimPositionRevolutionCnt);
+	theNode.Motion.MovePosnStart(aimPositionRevolutionCnt, true);
+	//}
 	
 	auto end_time = std::chrono::high_resolution_clock::now();
 	auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
@@ -59,22 +121,18 @@ void moveMotor(INode& theNode, int position) {
 }
 
 
-void inklingDataThread(WacomInkling& inkling, IPort& myPort) {
+// 3. 修改数据线程
+void inklingDataThread(WacomInkling& inkling, MotorController& controller) {
 	while (inklingRunning) {
 		auto loop_start = std::chrono::high_resolution_clock::now();
 		
 		InklingData data;
 		if (inkling.getData(data)) {
-			// Convert inkling X position to motor position
-			int motorPosition = static_cast<int>(data.x * 10);
+			// 更新位置并移动电机
+			controller.updatePositions(data);
+			controller.moveMotors();
 			
-			// Start motor movement with inkling X position
-			std::thread motorThread([&myPort, motorPosition]() {
-				moveMotor(myPort.Nodes(0), motorPosition);
-			});
-			motorThread.detach();
-			
-			// Print position and timestamp for debugging
+			// 打印调试信息
 			auto current_time = std::chrono::system_clock::now();
 			auto time_since_epoch = current_time.time_since_epoch();
 			auto milliseconds = std::chrono::duration_cast<std::chrono::milliseconds>(time_since_epoch).count();
@@ -261,7 +319,8 @@ int main(int argc, char *argv[])
 			printf("Press 'q' to quit\n\n");
 
 			// Start inkling data thread
-			std::thread inklingThread(inklingDataThread, std::ref(inkling), std::ref(myPort));
+			MotorController controller(myPort);
+			std::thread inklingThread(inklingDataThread, std::ref(inkling), std::ref(controller));
 
 			// Main loop
 			while (true) {
