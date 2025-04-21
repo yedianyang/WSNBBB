@@ -88,7 +88,7 @@ void inklingDataThread(WacomInkling& inkling) {
 	}
 }
 
-void displayThread() {
+void displayDataThread() {
 	while (inklingRunning) {
 		// Clear screen and print watch-like display
 		clearScreen();
@@ -302,7 +302,7 @@ int main(int argc, char *argv[])
 			// Start all threads
 			std::thread inklingThread(inklingDataThread, std::ref(inkling));
 			std::thread motorThread(motorControlThread, std::ref(myPort));
-			std::thread displayThread(displayThread);
+			std::thread displayThread(displayDataThread);
 
 			// Main loop
 			while (true) {
