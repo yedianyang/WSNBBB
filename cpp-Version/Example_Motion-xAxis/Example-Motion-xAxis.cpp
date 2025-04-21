@@ -253,24 +253,24 @@ int main(int argc, char *argv[])
 			WacomInkling inkling;
 			printf("Attempting to release any existing Inkling connection...\n");
 			
-			// Try to release with retries
-			int retryCount = 0;
-			const int maxRetries = 3;
-			while (retryCount < maxRetries) {
-				try {
-					inkling.release();
-					break;
-				} catch (...) {
-					retryCount++;
-					if (retryCount < maxRetries) {
-						printf("Release attempt %d failed, retrying...\n", retryCount);
-						std::this_thread::sleep_for(std::chrono::milliseconds(500));
-					}
-				}
+			// First try to stop any running data acquisition
+			try {
+				inkling.stop();
+			} catch (...) {
+				printf("Warning: Could not stop data acquisition\n");
 			}
 			
-			std::this_thread::sleep_for(std::chrono::milliseconds(500));  // Give some time for the release to complete
-
+			// Then try to release the device
+			try {
+				inkling.release();
+				printf("Wacom Inkling device released\n");
+			} catch (...) {
+				printf("Warning: Could not properly release device\n");
+			}
+			
+			// Wait for device to be fully released
+			std::this_thread::sleep_for(std::chrono::seconds(1));
+			
 			// Check if device is connected and initialize
 			printf("Checking device connection...\n");
 			if (!inkling.initialize()) {
