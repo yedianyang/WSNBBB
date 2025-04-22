@@ -1,5 +1,6 @@
 #include "./WacomInkling.hpp"
 #include <iostream>
+#include <thread>
 
 WacomInkling::WacomInkling() {}
 
@@ -18,7 +19,6 @@ void WacomInkling::releaseDevice() {
         libusb_exit(usbContext);
         usbContext = nullptr;
     }
-   
 }
 
 void WacomInkling::release() {
@@ -27,6 +27,46 @@ void WacomInkling::release() {
     printf("Wacom Inkling device released\n");
 }
 
+bool WacomInkling::reset() {
+    // Stop data acquisition if running
+    stop();
+    
+    // Release current device handle if exists
+    if (deviceHandle) {
+        libusb_close(deviceHandle);
+        deviceHandle = nullptr;
+    }
+    
+    // Initialize libusb context if not already done
+    if (!usbContext) {
+        int ret = libusb_init(&usbContext);
+        if (ret < 0) {
+            errorMessage = std::string("Failed to initialize libusb: ") + libusb_error_name(ret);
+            return false;
+        }
+    }
+    
+    // Open device
+    if (!openDevice()) {
+        return false;
+    }
+    
+    // Unbind (close) the device
+    libusb_close(deviceHandle);
+    deviceHandle = nullptr;
+    
+    // Simulate a delay to mimic unbind and rebind
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    
+    // Rebind (open) the device
+    if (!openDevice()) {
+        return false;
+    }
+    
+    // Reconfigure device
+    configureDevice();
+    return true;
+}
 
 
 bool WacomInkling::initialize() {
@@ -167,51 +207,5 @@ bool WacomInkling::openDevice() {
         errorMessage = "Failed to open device";
         return false;
     }
-    return true;
-}
-
-bool WacomInkling::reset() {
-    // Stop data acquisition if running
-    stop();
-    
-    // Release current device handle if exists
-    if (deviceHandle) {
-        libusb_close(deviceHandle);
-        deviceHandle = nullptr;
-    }
-    
-    // Initialize libusb context if not already done
-    if (!usbContext) {
-        int ret = libusb_init(&usbContext);
-        if (ret < 0) {
-            errorMessage = std::string("Failed to initialize libusb: ") + libusb_error_name(ret);
-            return false;
-        }
-    }
-    
-    // Open device
-    if (!openDevice()) {
-        return false;
-    }
-    
-    // Reset device
-    int ret = libusb_reset_device(deviceHandle);
-    if (ret != 0) {
-        errorMessage = std::string("Reset failed: ") + libusb_error_name(ret);
-        libusb_close(deviceHandle);
-        deviceHandle = nullptr;
-        return false;
-    }
-    
-    // Close and reopen device
-    libusb_close(deviceHandle);
-    deviceHandle = nullptr;
-    
-    if (!openDevice()) {
-        return false;
-    }
-    
-    // Reconfigure device
-    configureDevice();
     return true;
 }

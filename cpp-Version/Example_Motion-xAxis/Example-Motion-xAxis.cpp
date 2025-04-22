@@ -20,7 +20,8 @@ std::atomic<bool> inklingRunning(true);
 
 // Atomic struct for thread-safe access
 std::atomic<InklingState> latestInklingState{InklingState{0, 0, false, 0}};
-std::atomic<long long> motorLoopTime(0);
+std::atomic<long long> motorXLoopTime(0);
+std::atomic<long long> motorYLoopTime(0);
 
 // Send message and wait for newline
 void msgUser(const char *msg)
@@ -65,11 +66,6 @@ void moveMotor(INode& theNode, int position) {
 	theNode.Motion.VelLimit = VEL_LIM_RPM;
 	
 	theNode.Motion.MovePosnStart(position, true);
-	
-	auto end_time = std::chrono::high_resolution_clock::now();
-	auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
-
-	motorLoopTime.store(duration.count());
 }
 
 void inklingDataThread(WacomInkling& inkling) {
@@ -102,37 +98,53 @@ void displayDataThread() {
 			   latestInklingState.load().pressed);
 		printf("├─────────────────────────────────────────────┤\n");
 		printf("│ Motor Status:                               │\n");
-		printf("│   Current Position: n/a                  │\n");
+		printf("│   CurrentX Position: %-8d                  │\n", latestInklingState.load().x * 10);
+		printf("│   CurrentY Position: %-8d                  │\n", latestInklingState.load().y * 10);
 		printf("│   Target Position: %-8d                  │\n", latestInklingState.load().x * 10);
 		printf("├─────────────────────────────────────────────┤\n");
 		printf("│ Performance Metrics:                        │\n");
 		printf("│   Inkling Loop Time: %-6lld us             │\n", latestInklingState.load().loopTime);
-		printf("│   Motor Loop Time: %-6lld us             │\n", motorLoopTime.load());
+		printf("│   Motor X Loop Time: %-6lld us             │\n", motorXLoopTime.load());
+		printf("│   Motor Y Loop Time: %-6lld us             │\n", motorYLoopTime.load());
 		printf("└─────────────────────────────────────────────┘\n");
 		
 		std::this_thread::sleep_for(std::chrono::milliseconds(33)); // ~30 FPS
 	}
 }
 
-void motorControlThread(IPort& myPort) {
+void motorControlThreadX(IPort& myPort) {
 	while (inklingRunning) {
 		InklingState currentState = latestInklingState.load();
 		int motorPositionX = currentState.x * 10;
-		int motorPositionY = currentState.y * 10;
 
 		// 新实现：直接在当前线程中调用 moveMotor
 		moveMotor(myPort.Nodes(0), motorPositionX);
-		moveMotor(myPort.Nodes(1), motorPositionY);
-		/* 原实现：每次循环创建新线程
-		std::thread motorThread([&myPort, motorPosition]() {
-			moveMotor(myPort.Nodes(0), motorPosition);
-		});
-		motorThread.detach();
-		*/
 		
 		std::this_thread::sleep_for(std::chrono::milliseconds(1));
+
+			
+		auto end_time = std::chrono::high_resolution_clock::now();
+		auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
+
+		motorXLoopTime.store(duration.count());
 	}
 }
+
+void motorControlThreadY(IPort& myPort) {
+	while (inklingRunning) {
+		InklingState currentState = latestInklingState.load();
+		int motorPositionY = currentState.y * 10;
+		moveMotor(myPort.Nodes(1), motorPositionY);
+
+		std::this_thread::sleep_for(std::chrono::milliseconds(1));
+
+		auto end_time = std::chrono::high_resolution_clock::now();
+		auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
+
+		motorYLoopTime.store(duration.count());
+	}
+}
+
 
 int main(int argc, char *argv[])
 {
