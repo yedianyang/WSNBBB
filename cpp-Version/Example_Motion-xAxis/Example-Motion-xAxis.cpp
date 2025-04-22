@@ -122,7 +122,7 @@ void motorControlThreadX(IPort& myPort) {
 		
 		double curXPosition = myPort.Nodes(0).Motion.PosnMeasured;
 		
-		if (curXPosition > 0 && curXPosition < 4500) {
+		if (curXPosition > 0 && curXPosition < 45000) {
 			moveMotor(myPort.Nodes(0), motorPositionX);
 		}
 
@@ -132,6 +132,12 @@ void motorControlThreadX(IPort& myPort) {
 			
 		auto end_time = std::chrono::high_resolution_clock::now();
 		auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
+
+		printf("[Thread] IsReady=%d, WasHomed=%d, PosnMeasured=%f\n",
+       node.Motion.IsReady(),
+       node.Motion.Homing.WasHomed(),
+       node.Motion.PosnMeasured.Value());
+
 
 		currentXPosition.store(curXPosition);
 		motorXLoopTime.store(duration.count());
