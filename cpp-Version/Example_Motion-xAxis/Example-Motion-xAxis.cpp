@@ -117,11 +117,12 @@ void displayDataThread() {
 void motorControlThread(IPort& myPort) {
 	while (inklingRunning) {
 		InklingState currentState = latestInklingState.load();
-		int motorPosition = currentState.x * 10;
-		
+		int motorPositionX = currentState.x * 10;
+		int motorPositionY = currentState.y * 10;
+
 		// 新实现：直接在当前线程中调用 moveMotor
-		moveMotor(myPort.Nodes(0), motorPosition);
-		
+		moveMotor(myPort.Nodes(0), motorPositionX);
+		moveMotor(myPort.Nodes(1), motorPositionY);
 		/* 原实现：每次循环创建新线程
 		std::thread motorThread([&myPort, motorPosition]() {
 			moveMotor(myPort.Nodes(0), motorPosition);
