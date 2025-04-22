@@ -63,7 +63,7 @@ void moveMotor(INode& theNode, int position) {
 	theNode.VelUnit(INode::RPM);
 	theNode.Motion.AccLimit = ACC_LIM_RPM_PER_SEC;
 	theNode.Motion.VelLimit = VEL_LIM_RPM;
-	
+
 	theNode.Motion.MovePosnStart(position, true);
 }
 
@@ -118,7 +118,8 @@ void motorControlThreadX(IPort& myPort) {
 		InklingState currentState = latestInklingState.load();
 		int motorPositionX = currentState.x * 20;
 
-
+        myPort.Nodes(0).Motion.IsReady(),
+        myPort.Nodes(0).Motion.Homing.WasHomed(),
 		
 		double curXPosition = myPort.Nodes(0).Motion.PosnMeasured;
 		
@@ -126,18 +127,11 @@ void motorControlThreadX(IPort& myPort) {
 			moveMotor(myPort.Nodes(0), motorPositionX);
 		}
 
-
 		std::this_thread::sleep_for(std::chrono::milliseconds(1));
 
 			
 		auto end_time = std::chrono::high_resolution_clock::now();
 		auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
-
-		printf("[Thread] IsReady=%d, WasHomed=%d, PosnMeasured=%f\n",
-       myPort.Nodes(0).Motion.IsReady(),
-       myPort.Nodes(0).Motion.Homing.WasHomed(),
-       myPort.Nodes(0).Motion.PosnMeasured.Value());
-
 
 		currentXPosition.store(curXPosition);
 		motorXLoopTime.store(duration.count());
