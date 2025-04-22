@@ -89,10 +89,13 @@ bool WacomInkling::initialize() {
         
         // 获取端点信息
         printf("Getting endpoint information...\n");
-        libusb_device* device = libusb_get_device(deviceHandle);
-        struct libusb_config_descriptor* config;
-        libusb_get_config_descriptor(device, 0, &config);
-        endpointAddress = config->interface[0].altsetting[0].endpoint[0].bEndpointAddress;
+        //有的时候并不需要重新执行这部分信息，因为usb设备已经进入到了feeding data的状态，
+        // 所以需要判断是否已经获取过端点信息，如果获取过则不需要再次获取
+        if (endpointAddress == 0) {
+            libusb_device* device = libusb_get_device(deviceHandle);
+            struct libusb_config_descriptor* config;
+            libusb_get_config_descriptor(device, 0, &config);
+            endpointAddress = config->interface[0].altsetting[0].endpoint[0].bEndpointAddress;
         maxPacketSize = config->interface[0].altsetting[0].endpoint[0].wMaxPacketSize;
         
         if (libusb_kernel_driver_active(deviceHandle, interface) == 1) {
