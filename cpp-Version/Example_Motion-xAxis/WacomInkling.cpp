@@ -70,6 +70,7 @@ bool WacomInkling::reset() {
 
 
 bool WacomInkling::initialize() {
+    printf("(Before Try) Initializing Wacom Inkling device...\n");
     try {
         // 先尝试释放可能存在的连接
         printf("Attempting to release existing device connection...\n");
