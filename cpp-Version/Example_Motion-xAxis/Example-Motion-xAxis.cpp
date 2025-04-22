@@ -134,9 +134,9 @@ void motorControlThreadX(IPort& myPort) {
 		auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
 
 		printf("[Thread] IsReady=%d, WasHomed=%d, PosnMeasured=%f\n",
-       node.Motion.IsReady(),
-       node.Motion.Homing.WasHomed(),
-       node.Motion.PosnMeasured.Value());
+       myPort.Nodes(0).Motion.IsReady(),
+       myPort.Nodes(0).Motion.Homing.WasHomed(),
+       myPort.Nodes(0).Motion.PosnMeasured.Value());
 
 
 		currentXPosition.store(curXPosition);
