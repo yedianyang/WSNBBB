@@ -97,10 +97,10 @@ void displayDataThread() {
 			   latestInklingState.load().pressed);
 		printf("├─────────────────────────────────────────────┤\n");
 		printf("│ Motor Status:                               │\n");
-		printf("│   CurrentX Position: %-8d                  │\n", currentXPosition.load());
-		printf("│   CurrentY Position: %-8d                  │\n", 0.0);
-		printf("│   Target X Position: %-8d                  │\n", latestInklingState.load().x * 20);
-		printf("│   Target Y Position: %-8d                  │\n", latestInklingState.load().y * 20);
+		printf("│   CurrentX Position: %-2.2f                  │\n", currentXPosition.load());
+		printf("│   CurrentY Position: %-2.2f                  │\n", 0.0);
+		printf("│   Target X Position: %-2d                  │\n", latestInklingState.load().x * 20);
+		printf("│   Target Y Position: %-2d                  │\n", latestInklingState.load().y * 20);
 		printf("├─────────────────────────────────────────────┤\n");
 		printf("│ Performance Metrics:                        │\n");
 		printf("│   Inkling Loop Time: %-6lld us             │\n", latestInklingState.load().loopTime);
