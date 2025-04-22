@@ -325,7 +325,7 @@ int main(int argc, char *argv[])
 			std::thread inklingThread(inklingDataThread, std::ref(inkling));
 			std::thread motorThreadX(motorControlThreadX, std::ref(myPort));
 			std::thread motorThreadY(motorControlThreadY, std::ref(myPort));
-			//std::thread displayThread(displayDataThread);
+			std::thread displayThread(displayDataThread);
 
 			// Main loop
 			while (true) {
@@ -344,7 +344,7 @@ int main(int argc, char *argv[])
 			inklingThread.join();
 			motorThreadX.join();
 			motorThreadY.join();
-			//displayThread.join();
+			displayThread.join();
 			inkling.stop();
 			inkling.release();  // Release USB device before exiting
 			printf("Cleanup completed\n");
