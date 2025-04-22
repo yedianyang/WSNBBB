@@ -122,7 +122,7 @@ void motorControlThreadX(IPort& myPort) {
 		
 		double curXPosition = myPort.Nodes(0).Motion.PosnMeasured;
 		
-		if (currentXPosition > 0 && currentXPosition < 4500) {
+		if (curXPosition > 0 && curXPosition < 4500) {
 			moveMotor(myPort.Nodes(0), motorPositionX);
 		}
 
