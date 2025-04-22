@@ -118,8 +118,8 @@ void motorControlThreadX(IPort& myPort) {
 		InklingState currentState = latestInklingState.load();
 		int motorPositionX = currentState.x * 20;
 
-        myPort.Nodes(0).Motion.IsReady(),
-        myPort.Nodes(0).Motion.Homing.WasHomed(),
+        myPort.Nodes(0).Motion.IsReady();
+        myPort.Nodes(0).Motion.Homing.WasHomed();
 		
 		double curXPosition = myPort.Nodes(0).Motion.PosnMeasured;
 		
