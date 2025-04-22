@@ -21,7 +21,9 @@ std::atomic<bool> inklingRunning(true);
 // Atomic struct for thread-safe access
 std::atomic<InklingState> latestInklingState{InklingState{0, 0, false, 0}};
 std::atomic<long long> motorXLoopTime(0);
+std::atomic<double> currentXPosition(0);
 std::atomic<long long> motorYLoopTime(0);
+std::atomic<double> currentYPosition(0);
 
 // Send message and wait for newline
 void msgUser(const char *msg)
@@ -95,9 +97,10 @@ void displayDataThread() {
 			   latestInklingState.load().pressed);
 		printf("├─────────────────────────────────────────────┤\n");
 		printf("│ Motor Status:                               │\n");
-		printf("│   CurrentX Position: %-8d                  │\n", latestInklingState.load().x * 10);
-		printf("│   CurrentY Position: %-8d                  │\n", latestInklingState.load().y * 10);
-		printf("│   Target Position: %-8d                  │\n", latestInklingState.load().x * 10);
+		printf("│   CurrentX Position: %-8d                  │\n", currentXPosition.load());
+		printf("│   CurrentY Position: %-8d                  │\n", "n/a");
+		printf("│   Target X Position: %-8d                  │\n", latestInklingState.load().x * 20);
+		printf("│   Target Y Position: %-8d                  │\n", latestInklingState.load().y * 20);
 		printf("├─────────────────────────────────────────────┤\n");
 		printf("│ Performance Metrics:                        │\n");
 		printf("│   Inkling Loop Time: %-6lld us             │\n", latestInklingState.load().loopTime);
@@ -113,17 +116,24 @@ void motorControlThreadX(IPort& myPort) {
 	while (inklingRunning) {
 		auto start_time = std::chrono::high_resolution_clock::now();
 		InklingState currentState = latestInklingState.load();
-		int motorPositionX = currentState.x * 10;
+		int motorPositionX = currentState.x * 20;
 
-		// 新实现：直接在当前线程中调用 moveMotor
-		moveMotor(myPort.Nodes(0), motorPositionX);
+
 		
+		double curXPosition = myPort.Nodes(0).Motion.PosnMeasured.Value();
+		
+		if (currentXPosition > 0 && currentXPosition < 4500) {
+			moveMotor(myPort.Nodes(0), motorPositionX);
+		}
+
+
 		std::this_thread::sleep_for(std::chrono::milliseconds(1));
 
 			
 		auto end_time = std::chrono::high_resolution_clock::now();
 		auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
 
+		currentXPosition.store(curXPosition);
 		motorXLoopTime.store(duration.count());
 	}
 }
