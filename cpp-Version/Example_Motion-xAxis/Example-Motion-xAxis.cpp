@@ -21,9 +21,9 @@ std::atomic<bool> inklingRunning(true);
 // Atomic struct for thread-safe access
 std::atomic<InklingState> latestInklingState{InklingState{0, 0, false, 0}};
 std::atomic<long long> motorXLoopTime(0);
-std::atomic<double> currentXPosition(0);
+std::atomic<int> currentXPosition(0);
 std::atomic<long long> motorYLoopTime(0);
-std::atomic<double> currentYPosition(0);
+std::atomic<int> currentYPosition(0);
 
 // Send message and wait for newline
 void msgUser(const char *msg)
@@ -97,8 +97,8 @@ void displayDataThread() {
 			   latestInklingState.load().pressed);
 		printf("├─────────────────────────────────────────────┤\n");
 		printf("│ Motor Status:                               │\n");
-		printf("│   CurrentX Position: %-2.2f                  │\n", currentXPosition.load());
-		printf("│   CurrentY Position: %-2.2f                  │\n", 0.0);
+		printf("│   CurrentX Position: %-2d                  │\n", currentXPosition.load());
+		printf("│   CurrentY Position: %-2d                  │\n", currentYPosition.load());
 		printf("│   Target X Position: %-2d                  │\n", latestInklingState.load().x * 20);
 		printf("│   Target Y Position: %-2d                  │\n", latestInklingState.load().y * 20);
 		printf("├─────────────────────────────────────────────┤\n");
@@ -120,14 +120,7 @@ void motorControlThreadX(IPort& myPort) {
 
 
 		
-		double curXPosition = myPort.Nodes(0).Motion.PosnMeasured.Value();
-		
-		// printf("[Thread] IsReady=%d, WasHomed=%d, PosnMeasured=%f\n",
-		// myPort.Nodes(0).Motion.IsReady(),
-		// myPort.Nodes(0).Motion.Homing.WasHomed(),
-		// myPort.Nodes(0).Motion.PosnMeasured.Value());
-		printf("[Thread] curXPosition=%f\n", curXPosition);
-
+		double curXPosition = int(myPort.Nodes(0).Motion.PosnMeasured.Value());
 
 		if (curXPosition > 0 && curXPosition < 45000) {
 			moveMotor(myPort.Nodes(0), motorPositionX);
