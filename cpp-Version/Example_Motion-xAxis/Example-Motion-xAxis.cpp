@@ -98,7 +98,7 @@ void displayDataThread() {
 		printf("├─────────────────────────────────────────────┤\n");
 		printf("│ Motor Status:                               │\n");
 		printf("│   CurrentX Position: %-8d                  │\n", currentXPosition.load());
-		printf("│   CurrentY Position: %-8d                  │\n", "n/a");
+		printf("│   CurrentY Position: %-8d                  │\n", 0.0);
 		printf("│   Target X Position: %-8d                  │\n", latestInklingState.load().x * 20);
 		printf("│   Target Y Position: %-8d                  │\n", latestInklingState.load().y * 20);
 		printf("├─────────────────────────────────────────────┤\n");
