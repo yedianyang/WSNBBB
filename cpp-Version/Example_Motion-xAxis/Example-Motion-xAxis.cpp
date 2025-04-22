@@ -50,10 +50,8 @@ void clearScreen() {
 // sequential repeated moves on each axis.
 //*********************************************************************************
 
-#define ACC_LIM_RPM_PER_SEC 10000
-#define VEL_LIM_RPM 1000
-#define MOVE_DISTANCE_CNTS 5000
-#define NUM_MOVES 100
+#define ACC_LIM_RPM_PER_SEC 1000
+#define VEL_LIM_RPM 500
 #define TIME_TILL_TIMEOUT 10000 // The timeout used for homing(ms)
 
 void moveMotor(INode& theNode, int position) {
