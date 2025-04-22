@@ -122,10 +122,11 @@ void motorControlThreadX(IPort& myPort) {
 		
 		double curXPosition = myPort.Nodes(0).Motion.PosnMeasured.Value();
 		
-		printf("[Thread] IsReady=%d, WasHomed=%d, PosnMeasured=%f\n",
-		myPort.Nodes(0).Motion.IsReady(),
-		myPort.Nodes(0).Motion.Homing.WasHomed(),
-		myPort.Nodes(0).Motion.PosnMeasured.Value());
+		// printf("[Thread] IsReady=%d, WasHomed=%d, PosnMeasured=%f\n",
+		// myPort.Nodes(0).Motion.IsReady(),
+		// myPort.Nodes(0).Motion.Homing.WasHomed(),
+		// myPort.Nodes(0).Motion.PosnMeasured.Value());
+		printf("[Thread] curXPosition=%f\n", curXPosition);
 
 
 		if (curXPosition > 0 && curXPosition < 45000) {
