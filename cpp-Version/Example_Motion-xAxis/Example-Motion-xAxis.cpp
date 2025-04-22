@@ -57,8 +57,7 @@ void clearScreen() {
 #define TIME_TILL_TIMEOUT 10000 // The timeout used for homing(ms)
 
 void moveMotor(INode& theNode, int position) {
-	auto start_time = std::chrono::high_resolution_clock::now();
-	std::lock_guard<std::mutex> lock(motorMutex);
+	// 这里的锁没有实际作用，因为moveMotor函数内部没有共享资源需要保护
 	
 	theNode.AccUnit(INode::RPM_PER_SEC);
 	theNode.VelUnit(INode::RPM);
@@ -114,6 +113,7 @@ void displayDataThread() {
 
 void motorControlThreadX(IPort& myPort) {
 	while (inklingRunning) {
+		auto start_time = std::chrono::high_resolution_clock::now();
 		InklingState currentState = latestInklingState.load();
 		int motorPositionX = currentState.x * 10;
 
@@ -132,6 +132,7 @@ void motorControlThreadX(IPort& myPort) {
 
 void motorControlThreadY(IPort& myPort) {
 	while (inklingRunning) {
+		auto start_time = std::chrono::high_resolution_clock::now();
 		InklingState currentState = latestInklingState.load();
 		int motorPositionY = currentState.y * 10;
 		moveMotor(myPort.Nodes(1), motorPositionY);
@@ -293,8 +294,8 @@ int main(int argc, char *argv[])
 			// Initialize Wacom Inkling
 			WacomInkling inkling;
 			printf("Attempting to Initialize Wacom Inkling device...\n");
-			if (inkling.initialize()) {
-				if (!inkling.reset()) {
+			if (!inkling.reset()) {
+				if (!inkling.initialize()) {
 					printf("Failed to reset Wacom Inkling: %s\n", inkling.getLastError().c_str());
 					printf("Please check:\n");
 					printf("1. Device is properly connected via USB\n");
@@ -314,7 +315,8 @@ int main(int argc, char *argv[])
 
 			// Start all threads
 			std::thread inklingThread(inklingDataThread, std::ref(inkling));
-			std::thread motorThread(motorControlThread, std::ref(myPort));
+			std::thread motorThreadX(motorControlThreadX, std::ref(myPort));
+			std::thread motorThreadY(motorControlThreadY, std::ref(myPort));
 			std::thread displayThread(displayDataThread);
 
 			// Main loop
@@ -332,7 +334,8 @@ int main(int argc, char *argv[])
 			// Cleanup
 			printf("\nCleaning up...\n");
 			inklingThread.join();
-			motorThread.join();
+			motorThreadX.join();
+			motorThreadY.join();
 			displayThread.join();
 			inkling.stop();
 			inkling.release();  // Release USB device before exiting
