@@ -97,7 +97,7 @@ bool WacomInkling::initialize() {
         libusb_get_config_descriptor(device, 0, &config);
         endpointAddress = config->interface[0].altsetting[0].endpoint[0].bEndpointAddress;
         maxPacketSize = config->interface[0].altsetting[0].endpoint[0].wMaxPacketSize;
-        }
+        //}
         
         if (libusb_kernel_driver_active(deviceHandle, interface) == 1) {
             if (libusb_detach_kernel_driver(deviceHandle, interface) != 0) {
