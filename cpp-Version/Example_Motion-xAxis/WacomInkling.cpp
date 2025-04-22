@@ -72,6 +72,7 @@ bool WacomInkling::reset() {
 bool WacomInkling::initialize() {
     try {
         // 先尝试释放可能存在的连接
+        printf("Attempting to release existing device connection...\n");
         releaseDevice();
         
         if (libusb_init(&usbContext) < 0) {
@@ -86,6 +87,7 @@ bool WacomInkling::initialize() {
         }
         
         // 获取端点信息
+        printf("Getting endpoint information...\n");
         libusb_device* device = libusb_get_device(deviceHandle);
         struct libusb_config_descriptor* config;
         libusb_get_config_descriptor(device, 0, &config);
