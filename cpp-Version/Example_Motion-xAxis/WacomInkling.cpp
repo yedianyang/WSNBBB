@@ -111,6 +111,7 @@ bool WacomInkling::initialize() {
             return false;
         }
         
+        printf("Before Configure Wacom Inkling device...\n");
         configureDevice();
         return true;
     }
