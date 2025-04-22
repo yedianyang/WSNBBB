@@ -294,8 +294,8 @@ int main(int argc, char *argv[])
 			// Initialize Wacom Inkling
 			WacomInkling inkling;
 			printf("Attempting to Initialize Wacom Inkling device...\n");
-			if (!inkling.reset()) {
-				if (!inkling.initialize()) {
+			if (!inkling.initialize()) {
+				if (!inkling.reset()) {
 					printf("Failed to reset Wacom Inkling: %s\n", inkling.getLastError().c_str());
 					printf("Please check:\n");
 					printf("1. Device is properly connected via USB\n");
