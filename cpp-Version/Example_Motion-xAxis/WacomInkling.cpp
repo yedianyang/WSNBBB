@@ -62,9 +62,7 @@ bool WacomInkling::reset() {
     if (!openDevice()) {
         return false;
     }
-    
-    printf(" Initializing Wacom Inkling device...\n");
-    // Reconfigure device
+        // Reconfigure device
     configureDevice();
     return true;
 }
@@ -128,12 +126,15 @@ void WacomInkling::configureDevice() {
         {0x80, 0x01, 0x02, 0x01, 0x01},
         {0x80, 0x01, 0x0A, 0x01, 0x01, 0x02, 0x01}
     };
-    
+    printf("(After Const)Configuring Wacom Inkling device...\n");
     for (const auto& config : configs) {
         buf = config;
         buf.resize(33, 0);
+        printf("(Before Control Transfer)...\n");
         libusb_control_transfer(deviceHandle, 0x21, USBRQ_HID_SET_REPORT, 0x0380, 0, buf.data(), buf.size(), 0);
+        printf("(After Control Transfer)...\n");
     }
+    printf("(After Configure Wacom Inkling device)...\n");
 }
 
 void WacomInkling::start() {
