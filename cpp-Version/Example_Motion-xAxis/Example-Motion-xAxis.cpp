@@ -122,7 +122,7 @@ void motorControlThreadX(IPort& myPort) {
 
 		currentXPosition.store(curXPosition);
 
-		if (curXPosition > 0 && curXPosition < 45000) {
+		if (curXPosition >= 0 && curXPosition < 45000) {
 			moveMotor(myPort.Nodes(0), motorPositionX);
 		}
 		std::this_thread::sleep_for(std::chrono::milliseconds(1));
@@ -157,7 +157,7 @@ void motorControlThreadY(IPort& myPort) {
 
 		currentYPosition.store(curYPosition);
 
-		if (curYPosition > 0 && curYPosition < 45000) {
+		if (curYPosition >= 0 && curYPosition =< 45000) {
 			moveMotor(myPort.Nodes(1), motorPositionY);
 		}
 
