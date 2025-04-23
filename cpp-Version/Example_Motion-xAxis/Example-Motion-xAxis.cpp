@@ -116,7 +116,7 @@ void motorControlThreadX(IPort& myPort) {
 	while (inklingRunning) {
 		auto start_time = std::chrono::high_resolution_clock::now();
 		InklingState currentState = latestInklingState.load();
-		int motorPositionX = currentState.x * 20;
+		int motorPositionX = currentState.x * 386/45;
 		
 		double curXPosition = int(myPort.Nodes(0).Motion.PosnMeasured.Value());
 
@@ -146,11 +146,12 @@ void motorControlThreadX(IPort& myPort) {
  * 
  * @param myPort 电机控制端口接口的引用
  */
+
 void motorControlThreadY(IPort& myPort) {
 	while (inklingRunning) {
 		auto start_time = std::chrono::high_resolution_clock::now();
 		InklingState currentState = latestInklingState.load();
-		int motorPositionY = currentState.y * 20;
+		int motorPositionY = currentState.y * 58/9;
 		
 		double curYPosition = int(myPort.Nodes(1).Motion.PosnMeasured.Value());
 
