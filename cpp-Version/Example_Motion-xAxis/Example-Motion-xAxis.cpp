@@ -118,12 +118,12 @@ void motorControlThreadX(IPort& myPort) {
 		InklingState currentState = latestInklingState.load();
 		int motorPositionX = currentState.x * 386/45;
 		
-		double curXPosition = int(myPort.Nodes(0).Motion.PosnMeasured.Value());
-
-		currentXPosition.store(curXPosition);
+		int curXPosition = currentXPosition.load();\\
 
 		if (curXPosition >= 0 && curXPosition <= 45000) {
-			moveMotor(myPort.Nodes(0), motorPositionX);
+			if(motorPositionX >= 0 && motorPositionX <= 45000) {
+				moveMotor(myPort.Nodes(0), motorPositionX);
+			}
 		}
 		std::this_thread::sleep_for(std::chrono::milliseconds(1));
 
@@ -151,14 +151,14 @@ void motorControlThreadY(IPort& myPort) {
 	while (inklingRunning) {
 		auto start_time = std::chrono::high_resolution_clock::now();
 		InklingState currentState = latestInklingState.load();
-		int motorPositionY = currentState.y * 58/9;
 		
-		double curYPosition = int(myPort.Nodes(1).Motion.PosnMeasured.Value());
-
-		currentYPosition.store(curYPosition);
+		int motorPositionY = currentState.y * 58/9;
+		int curYPosition = currentYPosition.load();
 
 		if (curYPosition >= 0 && curYPosition <= 45000) {
-			moveMotor(myPort.Nodes(1), motorPositionY);
+			if(motorPositionY >= 0 && motorPositionY <= 45000) {
+				moveMotor(myPort.Nodes(1), motorPositionY);
+			}
 		}
 
 		
@@ -169,6 +169,18 @@ void motorControlThreadY(IPort& myPort) {
 		
 		motorYLoopTime.store(duration.count());
 	}
+}
+
+void motorDataThread(IPort& myPort) {
+    while (running) {
+        int curXPosition = int(myPort.Nodes(0).Motion.PosnMeasured.Value());
+        int curYPosition = int(myPort.Nodes(1).Motion.PosnMeasured.Value());
+
+		currentXPosition.store(curXPosition);
+		currentYPosition.store(curYPosition);
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(10)); // Adjust the sleep time as needed
+    }
 }
 
 
@@ -340,6 +352,7 @@ int main(int argc, char *argv[])
 
 			// Start all threads
 			std::thread inklingThread(inklingDataThread, std::ref(inkling));
+			std::thread motorDataThread(motorDataThread, std::ref(myPort));
 			std::thread motorThreadX(motorControlThreadX, std::ref(myPort));
 			std::thread motorThreadY(motorControlThreadY, std::ref(myPort));
 			std::thread displayThread(displayDataThread);
@@ -359,6 +372,7 @@ int main(int argc, char *argv[])
 			// Cleanup
 			printf("\nCleaning up...\n");
 			inklingThread.join();
+			motorDataThread.join();
 			motorThreadX.join();
 			motorThreadY.join();
 			displayThread.join();
