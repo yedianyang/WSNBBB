@@ -27,47 +27,6 @@ void WacomInkling::release() {
     printf("Wacom Inkling device released\n");
 }
 
-bool WacomInkling::reset() {
-    // Stop data acquisition if running
-    stop();
-    
-    // Release current device handle if exists
-    if (deviceHandle) {
-        libusb_close(deviceHandle);
-        deviceHandle = nullptr;
-    }
-    
-    // Initialize libusb context if not already done
-    if (!usbContext) {
-        int ret = libusb_init(&usbContext);
-        if (ret < 0) {
-            errorMessage = std::string("Failed to initialize libusb: ") + libusb_error_name(ret);
-            return false;
-        }
-    }
-    
-    // Open device
-    if (!openDevice()) {
-        return false;
-    }
-    
-    // Unbind (close) the device
-    libusb_close(deviceHandle);
-    deviceHandle = nullptr;
-    
-    // Simulate a delay to mimic unbind and rebind
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    
-    // Rebind (open) the device
-    if (!openDevice()) {
-        return false;
-    }
-        // Reconfigure device
-    configureDevice();
-    return true;
-}
-
-
 bool WacomInkling::initialize() {
     try {
         // 先尝试释放可能存在的连接
@@ -126,13 +85,12 @@ void WacomInkling::configureDevice() {
         {0x80, 0x01, 0x02, 0x01, 0x01},
         {0x80, 0x01, 0x0A, 0x01, 0x01, 0x02, 0x01}
     };
-    printf("(After Const)Configuring Wacom Inkling device...\n");
+
     for (const auto& config : configs) {
         buf = config;
         buf.resize(33, 0);
-        printf("(Before Control Transfer)...\n");
-        libusb_control_transfer(deviceHandle, 0x21, USBRQ_HID_SET_REPORT, 0x0380, 0, buf.data(), buf.size(), 0);
-        printf("(After Control Transfer)...\n");
+
+        libusb_control_transfer(deviceHandle, 0x21, USBRQ_HID_SET_REPORT, 0x0380, 0, buf.data(), buf.size(), 1000);
     }
     printf("(After Configure Wacom Inkling device)...\n");
 }
@@ -200,17 +158,4 @@ bool WacomInkling::getLatestData(InklingData& data) {
 
 std::string WacomInkling::getLastError() const {
     return errorMessage;
-}
-
-bool WacomInkling::openDevice() {
-    if (deviceHandle) {
-        return true;
-    }
-    
-    deviceHandle = libusb_open_device_with_vid_pid(usbContext, WACOM_VENDOR_ID, WACOM_PRODUCT_ID);
-    if (!deviceHandle) {
-        errorMessage = "Failed to open device";
-        return false;
-    }
-    return true;
 }
