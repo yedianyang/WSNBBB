@@ -172,14 +172,14 @@ void motorControlThreadY(IPort& myPort) {
 }
 
 void motorDataThread(IPort& myPort) {
-    while (running) {
+    while (inklingRunning) {
         int curXPosition = int(myPort.Nodes(0).Motion.PosnMeasured.Value());
         int curYPosition = int(myPort.Nodes(1).Motion.PosnMeasured.Value());
 
 		currentXPosition.store(curXPosition);
 		currentYPosition.store(curYPosition);
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(10)); // Adjust the sleep time as needed
+        std::this_thread::sleep_for(std::chrono::milliseconds(1)); // Adjust the sleep time as needed
     }
 }
 
