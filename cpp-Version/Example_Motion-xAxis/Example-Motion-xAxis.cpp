@@ -135,6 +135,17 @@ void motorControlThreadX(IPort& myPort) {
 	}
 }
 
+/**
+ * Y轴电机控制线程函数，基于Inkling输入控制电机运动
+ * 
+ * 该函数在inklingRunning为true时循环运行，主要功能包括：
+ * 1. 获取最新的Inkling状态并计算目标Y轴位置
+ * 2. 读取当前Y轴电机位置并存储
+ * 3. 如果目标位置在有效范围内（0-45000），则移动电机到目标位置
+ * 4. 跟踪执行时间以监控性能
+ * 
+ * @param myPort 电机控制端口接口的引用
+ */
 void motorControlThreadY(IPort& myPort) {
 	while (inklingRunning) {
 		auto start_time = std::chrono::high_resolution_clock::now();
@@ -150,13 +161,12 @@ void motorControlThreadY(IPort& myPort) {
 		}
 
 		
-		motorYLoopTime.store(duration.count());
 		std::this_thread::sleep_for(std::chrono::milliseconds(1));
 
 		auto end_time = std::chrono::high_resolution_clock::now();
 		auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
-
 		
+		motorYLoopTime.store(duration.count());
 	}
 }
 
