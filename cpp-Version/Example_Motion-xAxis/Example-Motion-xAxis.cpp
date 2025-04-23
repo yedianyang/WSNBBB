@@ -120,18 +120,18 @@ void motorControlThreadX(IPort& myPort) {
 		
 		double curXPosition = int(myPort.Nodes(0).Motion.PosnMeasured.Value());
 
+		currentXPosition.store(curXPosition);
+
 		if (curXPosition > 0 && curXPosition < 45000) {
 			moveMotor(myPort.Nodes(0), motorPositionX);
 		}
+		std::this_thread::sleep_for(std::chrono::milliseconds(1));
 
-		currentXPosition.store(curXPosition);
-		motorXLoopTime.store(duration.count());
-			
 		auto end_time = std::chrono::high_resolution_clock::now();
 		auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
-
-
-		std::this_thread::sleep_for(std::chrono::milliseconds(1));
+		
+		
+		motorXLoopTime.store(duration.count());
 	}
 }
 
@@ -143,17 +143,20 @@ void motorControlThreadY(IPort& myPort) {
 		
 		double curYPosition = int(myPort.Nodes(1).Motion.PosnMeasured.Value());
 
+		currentYPosition.store(curYPosition);
+
 		if (curYPosition > 0 && curYPosition < 45000) {
 			moveMotor(myPort.Nodes(1), motorPositionY);
 		}
 
-		currentYPosition.store(curYPosition);
+		
 		motorYLoopTime.store(duration.count());
-			
+		std::this_thread::sleep_for(std::chrono::milliseconds(1));
+
 		auto end_time = std::chrono::high_resolution_clock::now();
 		auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
 
-		std::this_thread::sleep_for(std::chrono::milliseconds(1));
+		
 	}
 }
 
