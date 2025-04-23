@@ -372,7 +372,7 @@ int main(int argc, char *argv[])
 			// Cleanup
 			printf("\nCleaning up...\n");
 			inklingThread.join();
-			motorDataThread.join();
+			motorPositionThread.join();
 			motorThreadX.join();
 			motorThreadY.join();
 			displayThread.join();
