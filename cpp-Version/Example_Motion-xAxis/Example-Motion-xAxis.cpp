@@ -171,7 +171,7 @@ void motorControlThreadY(IPort& myPort) {
 	}
 }
 
-void motorDataThread(IPort& myPort) {
+void motorPositionDataThread(IPort& myPort) {
     while (inklingRunning) {
         int curXPosition = int(myPort.Nodes(0).Motion.PosnMeasured.Value());
         int curYPosition = int(myPort.Nodes(1).Motion.PosnMeasured.Value());
@@ -352,7 +352,7 @@ int main(int argc, char *argv[])
 
 			// Start all threads
 			std::thread inklingThread(inklingDataThread, std::ref(inkling));
-			std::thread motorDataThread(motorDataThread, std::ref(myPort));
+			std::thread motorPositionThread(motorPositionDataThread, std::ref(myPort));
 			std::thread motorThreadX(motorControlThreadX, std::ref(myPort));
 			std::thread motorThreadY(motorControlThreadY, std::ref(myPort));
 			std::thread displayThread(displayDataThread);
