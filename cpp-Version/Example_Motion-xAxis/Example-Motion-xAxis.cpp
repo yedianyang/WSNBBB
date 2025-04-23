@@ -108,7 +108,7 @@ void displayDataThread() {
 		printf("│   Motor Y Loop Time: %-6lld us             │\n", motorYLoopTime.load());
 		printf("└─────────────────────────────────────────────┘\n");
 		
-		std::this_thread::sleep_for(std::chrono::milliseconds(33)); // ~30 FPS
+		std::this_thread::sleep_for(std::chrono::milliseconds(50)); // ~20 FPS
 	}
 }
 
@@ -139,22 +139,19 @@ void motorControlThreadY(IPort& myPort) {
 	while (inklingRunning) {
 		auto start_time = std::chrono::high_resolution_clock::now();
 		InklingState currentState = latestInklingState.load();
-		int motorPositionY = currentState.y * 10;
-
-		double curYPosition = int(myPort.Nodes(1).Motion.PosnMeasured.Value());	
+		int motorPositionY = currentState.y * 20;
+		
+		double curYPosition = int(myPort.Nodes(1).Motion.PosnMeasured.Value());
 
 		if (curYPosition > 0 && curYPosition < 45000) {
 			moveMotor(myPort.Nodes(1), motorPositionY);
 		}
 
-
-
-		auto end_time = std::chrono::high_resolution_clock::now();
-		auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
-
 		currentYPosition.store(curYPosition);
 		motorYLoopTime.store(duration.count());
-
+			
+		auto end_time = std::chrono::high_resolution_clock::now();
+		auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
 
 		std::this_thread::sleep_for(std::chrono::milliseconds(1));
 	}
