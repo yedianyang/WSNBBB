@@ -63,6 +63,7 @@ bool WacomInkling::reset() {
         return false;
     }
     
+    printf(" Initializing Wacom Inkling device...\n");
     // Reconfigure device
     configureDevice();
     return true;
