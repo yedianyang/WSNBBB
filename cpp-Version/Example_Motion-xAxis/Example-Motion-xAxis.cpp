@@ -118,7 +118,7 @@ void motorControlThreadX(IPort& myPort) {
 		InklingState currentState = latestInklingState.load();
 		int motorPositionX = currentState.x * 386/45;
 		
-		int curXPosition = currentXPosition.load();\\
+		int curXPosition = currentXPosition.load();
 
 		if (curXPosition >= 0 && curXPosition <= 45000) {
 			if(motorPositionX >= 0 && motorPositionX <= 45000) {
