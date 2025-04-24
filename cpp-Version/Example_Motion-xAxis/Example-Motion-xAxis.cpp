@@ -114,7 +114,7 @@ void displayDataThread() {
 		printf("│   Motor Data Loop Time: %-6lld us          │\n", motorDataLoopTime.load());
 		printf("└─────────────────────────────────────────────┘\n");
 		
-		std::this_thread::sleep_for(std::chrono::milliseconds(50)); // ~20 FPS
+		std::this_thread::sleep_for(std::chrono::milliseconds(33)); // ~20 FPS
 	}
 }
 
