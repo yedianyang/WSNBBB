@@ -90,7 +90,7 @@ void WacomInkling::configureDevice() {
         buf = config;
         buf.resize(33, 0);
 
-        libusb_control_transfer(deviceHandle, 0x21, USBRQ_HID_SET_REPORT, 0x0380, 0, buf.data(), buf.size(), 1000);
+        libusb_control_transfer(deviceHandle, 0x21, USBRQ_HID_SET_REPORT, 0x0380, 0, buf.data(), buf.size(), 0);
     }
     printf("(After Configure Wacom Inkling device)...\n");
 }

@@ -24,6 +24,9 @@ std::atomic<long long> motorXLoopTime(0);
 std::atomic<int> currentXPosition(0);
 std::atomic<long long> motorYLoopTime(0);
 std::atomic<int> currentYPosition(0);
+std::atomic<long long> motorDataLoopTime(0);
+std::atomic<int> errorXposition(0);
+std::atomic<int> errorYposition(0);
 
 // Send message and wait for newline
 void msgUser(const char *msg)
@@ -99,13 +102,16 @@ void displayDataThread() {
 		printf("│ Motor Status:                               │\n");
 		printf("│   CurrentX Position: %-2d                  │\n", currentXPosition.load());
 		printf("│   CurrentY Position: %-2d                  │\n", currentYPosition.load());
-		printf("│   Target X Position: %-2d                  │\n", latestInklingState.load().x * 20);
-		printf("│   Target Y Position: %-2d                  │\n", latestInklingState.load().y * 20);
+		printf("│   Error X Position: %-2d                  │\n", errorXposition.load());
+		printf("│   Error Y Position: %-2d                  │\n", errorYposition.load());
+		printf("│   Target X Position: %-2d                  │\n", latestInklingState.load().x * 386/45);
+		printf("│   Target Y Position: %-2d                  │\n", latestInklingState.load().y * 58/9);
 		printf("├─────────────────────────────────────────────┤\n");
 		printf("│ Performance Metrics:                        │\n");
 		printf("│   Inkling Loop Time: %-6lld us             │\n", latestInklingState.load().loopTime);
 		printf("│   Motor X Loop Time: %-6lld us             │\n", motorXLoopTime.load());
 		printf("│   Motor Y Loop Time: %-6lld us             │\n", motorYLoopTime.load());
+		printf("│   Motor Data Loop Time: %-6lld us          │\n", motorDataLoopTime.load());
 		printf("└─────────────────────────────────────────────┘\n");
 		
 		std::this_thread::sleep_for(std::chrono::milliseconds(50)); // ~20 FPS
@@ -173,13 +179,28 @@ void motorControlThreadY(IPort& myPort) {
 
 void motorPositionDataThread(IPort& myPort) {
     while (inklingRunning) {
+		auto start_time = std::chrono::high_resolution_clock::now();
+
         int curXPosition = int(myPort.Nodes(0).Motion.PosnMeasured.Value());
         int curYPosition = int(myPort.Nodes(1).Motion.PosnMeasured.Value());
 
+		int errXposition = int(myPort.Nodes(0).Motion.PosnTracking.Value());
+		int errYposition = int(myPort.Nodes(1).Motion.PosnTracking.Value());
+
+
 		currentXPosition.store(curXPosition);
 		currentYPosition.store(curYPosition);
+		errorXposition.store(errXposition);
+		errorYposition.store(errYposition);
+
+
 
         std::this_thread::sleep_for(std::chrono::milliseconds(1)); // Adjust the sleep time as needed
+
+		auto end_time = std::chrono::high_resolution_clock::now();
+		auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
+
+		motorDataLoopTime.store(duration.count());
     }
 }
 
