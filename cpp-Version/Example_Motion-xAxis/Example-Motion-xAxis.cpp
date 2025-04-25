@@ -27,7 +27,8 @@ std::atomic<int> currentYPosition(0);
 std::atomic<long long> motorDataLoopTime(0);
 std::atomic<int> errorXposition(0);
 std::atomic<int> errorYposition(0);
-
+std::atomic<int> targetXposition(960);
+std::atomic<int> targetYposition(960);
 // Send message and wait for newline
 void msgUser(const char *msg)
 {
@@ -55,8 +56,8 @@ void clearScreen() {
 // sequential repeated moves on each axis.
 //*********************************************************************************
 
-#define ACC_LIM_RPM_PER_SEC 1000
-#define VEL_LIM_RPM 500
+#define ACC_LIM_RPM_PER_SEC 5000
+#define VEL_LIM_RPM 800
 #define TIME_TILL_TIMEOUT 10000 // The timeout used for homing(ms)
 
 void moveMotor(INode& theNode, int position) {
@@ -100,12 +101,12 @@ void displayDataThread() {
 			   latestInklingState.load().pressed);
 		printf("├─────────────────────────────────────────────┤\n");
 		printf("│ Motor Status:                               │\n");
-		printf("│   CurrentX Position: %-2d                  │\n", currentXPosition.load());
-		printf("│   CurrentY Position: %-2d                  │\n", currentYPosition.load());
+		printf("│   Current X Position: %-2d                  │\n", currentXPosition.load());
+		printf("│   Current Y Position: %-2d                  │\n", currentYPosition.load());
 		printf("│   Error X Position: %-2d                  │\n", errorXposition.load());
 		printf("│   Error Y Position: %-2d                  │\n", errorYposition.load());
-		printf("│   Target X Position: %-2d                  │\n", latestInklingState.load().x * 386/45);
-		printf("│   Target Y Position: %-2d                  │\n", latestInklingState.load().y * 58/9);
+		printf("│   Target X Position: %-2d                  │\n", 00000);
+		printf("│   Target Y Position: %-2d                  │\n", 00000); //(latestInklingState.load().y - targetYposition.load() ) * 58/9 + currentXPosition.load());
 		printf("├─────────────────────────────────────────────┤\n");
 		printf("│ Performance Metrics:                        │\n");
 		printf("│   Inkling Loop Time: %-6lld us             │\n", latestInklingState.load().loopTime);
@@ -119,17 +120,32 @@ void displayDataThread() {
 }
 
 void motorControlThreadX(IPort& myPort) {
+	/**
+	 * X轴电机控制线程函数，基于Inkling输入控制电机运动
+	 * 
+	 * 该函数在inklingRunning为true时循环运行，主要功能包括：
+	 * 1. 获取最新的Inkling状态并计算目标X轴位置
+	 * 2. 读取当前X轴电机位置并存储
+	 * 3. 如果目标位置在有效范围内（0-45000），则移动电机到目标位置
+	 * 4. 跟踪执行时间以监控性能
+	 * 
+	 * @param myPort 电机控制端口接口的引用
+	 */
+
 	while (inklingRunning) {
 		auto start_time = std::chrono::high_resolution_clock::now();
-		InklingState currentState = latestInklingState.load();
-		int motorPositionX = currentState.x * 386/45;
+		//InklingState currentState = latestInklingState.load();
 		
-		int curXPosition = currentXPosition.load();
+		int currentInklingX = latestInklingState.load().x;
+		int curMotorXPosition = currentXPosition.load();
+		int tarXPosition = targetXposition.load();
 
-		if (curXPosition >= 0 && curXPosition <= 45000) {
-			if(motorPositionX >= 0 && motorPositionX <= 45000) {
-				moveMotor(myPort.Nodes(0), motorPositionX);
-			}
+		int motorGoToPositionX = (currentInklingX - tarXPosition) * 386/45 + curMotorXPosition;
+
+		if (curMotorXPosition >= 0 && curMotorXPosition <= 45000) {
+			//if(motorPositionX >= 0 && motorPositionX <= 45000) {
+				moveMotor(myPort.Nodes(0), motorGoToPositionX);
+			//}
 		}
 		std::this_thread::sleep_for(std::chrono::milliseconds(1));
 
@@ -141,30 +157,35 @@ void motorControlThreadX(IPort& myPort) {
 	}
 }
 
-/**
- * Y轴电机控制线程函数，基于Inkling输入控制电机运动
- * 
- * 该函数在inklingRunning为true时循环运行，主要功能包括：
- * 1. 获取最新的Inkling状态并计算目标Y轴位置
- * 2. 读取当前Y轴电机位置并存储
- * 3. 如果目标位置在有效范围内（0-45000），则移动电机到目标位置
- * 4. 跟踪执行时间以监控性能
- * 
- * @param myPort 电机控制端口接口的引用
- */
+
 
 void motorControlThreadY(IPort& myPort) {
+	/**
+	 * Y轴电机控制线程函数，基于Inkling输入控制电机运动
+	 * 
+	 * 该函数在inklingRunning为true时循环运行，主要功能包括：
+	 * 1. 获取最新的Inkling状态并计算目标Y轴位置
+	 * 2. 读取当前Y轴电机位置并存储
+	 * 3. 如果目标位置在有效范围内（0-45000），则移动电机到目标位置
+	 * 4. 跟踪执行时间以监控性能
+	 * 
+	 * @param myPort 电机控制端口接口的引用
+	 */
 	while (inklingRunning) {
 		auto start_time = std::chrono::high_resolution_clock::now();
-		InklingState currentState = latestInklingState.load();
-		
-		int motorPositionY = currentState.y * 58/9;
-		int curYPosition = currentYPosition.load();
 
-		if (curYPosition >= 0 && curYPosition <= 45000) {
-			if(motorPositionY >= 0 && motorPositionY <= 45000) {
-				moveMotor(myPort.Nodes(1), motorPositionY);
-			}
+		int currentInklingY = latestInklingState.load().y;
+		int curMotorYPosition = currentYPosition.load();
+		int tarYPosition = targetYposition.load();
+
+		int motorGoToPositionY = (currentInklingY - tarYPosition) * 58/9 + curMotorYPosition;
+
+		//printf("motorGoToPositionY: %d\n", motorGoToPositionY);
+
+		if (curMotorYPosition >= 0 && curMotorYPosition <= 45000) {
+			//if(motorPositionY >= 0 && motorPositionY <= 45000) {
+				moveMotor(myPort.Nodes(1), motorGoToPositionY);
+			//}
 		}
 
 		
@@ -181,19 +202,17 @@ void motorPositionDataThread(IPort& myPort) {
     while (inklingRunning) {
 		auto start_time = std::chrono::high_resolution_clock::now();
 
-        int curXPosition = int(myPort.Nodes(0).Motion.PosnMeasured.Value());
-        int curYPosition = int(myPort.Nodes(1).Motion.PosnMeasured.Value());
+        int curMotorXPosition = int(myPort.Nodes(0).Motion.PosnMeasured.Value());
+        int curMotorYPosition = int(myPort.Nodes(1).Motion.PosnMeasured.Value());
 
-		int errXposition = int(myPort.Nodes(0).Motion.PosnTracking.Value());
-		int errYposition = int(myPort.Nodes(1).Motion.PosnTracking.Value());
-
-
-		currentXPosition.store(curXPosition);
-		currentYPosition.store(curYPosition);
-		errorXposition.store(errXposition);
-		errorYposition.store(errYposition);
+		int errMotorXPosition = int(myPort.Nodes(0).Motion.PosnTracking.Value());
+		int errMotorYPosition = int(myPort.Nodes(1).Motion.PosnTracking.Value());
 
 
+		currentXPosition.store(curMotorXPosition);
+		currentYPosition.store(curMotorYPosition);
+		errorXposition.store(errMotorXPosition);
+		errorYposition.store(errMotorYPosition);
 
         std::this_thread::sleep_for(std::chrono::milliseconds(1)); // Adjust the sleep time as needed
 
@@ -204,6 +223,21 @@ void motorPositionDataThread(IPort& myPort) {
     }
 }
 
+
+void inklingTargetPositionDataThread() {
+	/**
+	 * 更新目标位置
+	 * 
+	 * 该函数用于更新目标位置，并计算目标位置与当前位置的误差
+	 * 
+	 */
+
+	int tarXPosition = 960;
+	int tarYPosition = 960; 
+
+	targetXposition.store(tarXPosition);
+	targetYposition.store(tarYPosition);
+}
 
 int main(int argc, char *argv[])
 {
@@ -371,6 +405,7 @@ int main(int argc, char *argv[])
 
 			// Start all threads
 			std::thread inklingThread(inklingDataThread, std::ref(inkling));
+			std::thread inklingTargetPositionThread(inklingTargetPositionDataThread);
 			std::thread motorPositionThread(motorPositionDataThread, std::ref(myPort));
 			std::thread motorThreadX(motorControlThreadX, std::ref(myPort));
 			std::thread motorThreadY(motorControlThreadY, std::ref(myPort));
@@ -391,6 +426,7 @@ int main(int argc, char *argv[])
 			// Cleanup
 			printf("\nCleaning up...\n");
 			inklingThread.join();
+			inklingTargetPositionThread.join();
 			motorPositionThread.join();
 			motorThreadX.join();
 			motorThreadY.join();
