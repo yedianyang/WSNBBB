@@ -25,6 +25,7 @@ int adaptiveLowPassFilter(int currentValue, int newValue, float baseAlpha) {
     // Y轴: 1920 resolution = 145mm = 6400*1.93 counts
     // 取较大值作为基准，X轴1个resolution约等于8.57个counts (386/45)
     // 因此对于counts单位，设置变化幅度基准为1920 * 8.57 ≈ 16454
+    
     float alpha = baseAlpha + (1.0f - baseAlpha) * (delta / 12000);
     alpha = std::min(1.0f, std::max(baseAlpha, alpha)); // 确保alpha在合理范围内
 

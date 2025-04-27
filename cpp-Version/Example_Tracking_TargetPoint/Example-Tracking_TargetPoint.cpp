@@ -30,6 +30,7 @@ std::atomic<int> errorXposition(0);
 std::atomic<int> errorYposition(0);
 std::atomic<int> targetXposition(960);
 std::atomic<int> targetYposition(960);
+
 // Send message and wait for newline
 void msgUser(const char *msg)
 {
@@ -145,7 +146,7 @@ void motorControlThreadX(IPort& myPort) {
 
 		motorGoToPositionX = adaptiveLowPassFilter(curMotorXPosition, motorGoToPositionX, 0.5f);
 
-		if (curMotorXPosition >= 0 && curMotorXPosition <= 45000) {
+		if (curMotorXPosition >= 0 && curMotorXPosition <= 46000) {
 			//if(motorPositionX >= 0 && motorPositionX <= 45000) {
 				moveMotor(myPort.Nodes(0), motorGoToPositionX);
 			//}
