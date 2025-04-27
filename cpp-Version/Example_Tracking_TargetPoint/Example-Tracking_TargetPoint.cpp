@@ -10,6 +10,7 @@
 #include <atomic>
 #include "./WacomInkling.hpp"  // Add WacomInkling header
 #include <cstdlib>  // Add for system() call
+#include "filter.cpp"
 
 using namespace sFnd;
 
@@ -142,6 +143,8 @@ void motorControlThreadX(IPort& myPort) {
 
 		int motorGoToPositionX = (currentInklingX - tarXPosition) * 386/45 + curMotorXPosition;
 
+		motorGoToPositionX = adaptiveLowPassFilter(curMotorXPosition, motorGoToPositionX, 0.5f);
+
 		if (curMotorXPosition >= 0 && curMotorXPosition <= 45000) {
 			//if(motorPositionX >= 0 && motorPositionX <= 45000) {
 				moveMotor(myPort.Nodes(0), motorGoToPositionX);
@@ -179,6 +182,8 @@ void motorControlThreadY(IPort& myPort) {
 		int tarYPosition = targetYposition.load();
 
 		int motorGoToPositionY = (currentInklingY - tarYPosition) * 58/9 + curMotorYPosition;
+
+		motorGoToPositionY = adaptiveLowPassFilter(curMotorYPosition, motorGoToPositionY, 0.5f);
 
 		//printf("motorGoToPositionY: %d\n", motorGoToPositionY);
 
