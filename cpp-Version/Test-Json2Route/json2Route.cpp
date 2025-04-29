@@ -30,9 +30,8 @@ bool Json2Route::loadFromFile(const std::string& filename) {
  * @return 包含所有命令的vector的const引用
  * @details 该方法会遍历所有路径，并将每个路径中的命令合并到一个vector中返回
  */
-const std::vector<Command>& Json2Route::getAllCommands() const {
-    static std::vector<Command> allCommands;
-    allCommands.clear();
+std::vector<Command> Json2Route::getAllCommands() const {
+    std::vector<Command> allCommands;
     for (const auto& path : paths_) {
         const auto& commands = path.getCommands();
         allCommands.insert(allCommands.end(), commands.begin(), commands.end());
