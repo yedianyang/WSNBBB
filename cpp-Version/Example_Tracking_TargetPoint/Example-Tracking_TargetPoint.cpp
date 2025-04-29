@@ -9,10 +9,8 @@
 #include <mutex>
 #include <atomic>
 #include "./WacomInkling.hpp"  // Add WacomInkling header
-#include "./json2Route.hpp"
 #include <cstdlib>  // Add for system() call
 #include "filter.cpp"
-
 
 using namespace sFnd;
 
@@ -240,7 +238,6 @@ void inklingTargetPositionDataThread() {
 	 * 
 	 */
 
-
 	int tarXPosition = 960;
 	int tarYPosition = 960; 
 
@@ -392,9 +389,7 @@ int main(int argc, char *argv[])
 			// At this point we will execute moves based on user input
 			//////////////////////////////////////////////////////////////////////////////////////
 
-			
-		}
-		// Initialize Wacom Inkling
+			// Initialize Wacom Inkling
 			WacomInkling inkling;
 			printf("Attempting to Initialize Wacom Inkling device...\n");
 			if (!inkling.initialize()) {
@@ -414,7 +409,6 @@ int main(int argc, char *argv[])
 			printf("Device is ready to track position\n");
 			printf("Press 'q' to quit\n\n");
 
-
 			// Start all threads
 			std::thread inklingThread(inklingDataThread, std::ref(inkling));
 			std::thread inklingTargetPositionThread(inklingTargetPositionDataThread);
@@ -422,8 +416,6 @@ int main(int argc, char *argv[])
 			std::thread motorThreadX(motorControlThreadX, std::ref(myPort));
 			std::thread motorThreadY(motorControlThreadY, std::ref(myPort));
 			std::thread displayThread(displayDataThread);
-
-
 
 			// Main loop
 			while (true) {
@@ -460,9 +452,8 @@ int main(int argc, char *argv[])
 			// 	// Create a shortcut reference for a node
 			// 	myPort.Nodes(iNode).EnableReq(false);
 			// }
+		}
 	}
-
-
 	catch (mnErr &theErr)
 	{
 		printf("Failed to disable Nodes n\n");
