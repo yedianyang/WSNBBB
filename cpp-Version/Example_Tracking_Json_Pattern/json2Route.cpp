@@ -64,27 +64,39 @@ const std::vector<Command>& Json2Route::getPathCommands(const std::string& pathI
 bool Json2Route::parseJson(const json& j) {
     try {
         // 解析canvas_size
-        if (j.contains("canvas_size")) {
-            auto& canvas = j["canvas_size"][0];
-            canvasWidth_ = canvas["width"];
-            canvasHeight_ = canvas["height"];
+        auto canvasSizeIt = j.find("canvas_size");
+        if (canvasSizeIt != j.end() && !canvasSizeIt->empty()) {
+            const auto& canvas = (*canvasSizeIt)[0];
+            if (canvas.find("width") != canvas.end() && 
+                canvas.find("height") != canvas.end()) {
+                canvasWidth_ = canvas["width"];
+                canvasHeight_ = canvas["height"];
+            }
         }
 
         // 解析paths
-        if (j.contains("paths")) {
-            for (const auto& pathJson : j["paths"]) {
+        auto pathsIt = j.find("paths");
+        if (pathsIt != j.end()) {
+            for (const auto& pathJson : *pathsIt) {
+                if (pathJson.find("id") == pathJson.end() || 
+                    pathJson.find("style") == pathJson.end()) {
+                    continue;  // 跳过无效的路径
+                }
+                
                 Path path(pathJson["id"], pathJson["style"]);
                 
-                for (const auto& cmdJson : pathJson["commands"]) {
-                    Command::Type type;
-                    std::string cmdType = cmdJson["type"];
-                    
-                    if (cmdType == "pen_down") type = Command::Type::PEN_DOWN;
-                    else if (cmdType == "move") type = Command::Type::MOVE;
-                    else if (cmdType == "pen_up") type = Command::Type::PEN_UP;
-                    else continue;
+                if (pathJson.find("commands") != pathJson.end()) {
+                    for (const auto& cmdJson : pathJson["commands"]) {
+                        Command::Type type;
+                        std::string cmdType = cmdJson["type"];
+                        
+                        if (cmdType == "pen_down") type = Command::Type::PEN_DOWN;
+                        else if (cmdType == "move") type = Command::Type::MOVE;
+                        else if (cmdType == "pen_up") type = Command::Type::PEN_UP;
+                        else continue;
 
-                    path.addCommand(Command(type, cmdJson["x"], cmdJson["y"]));
+                        path.addCommand(Command(type, cmdJson["x"], cmdJson["y"]));
+                    }
                 }
                 
                 paths_.push_back(path);
@@ -93,7 +105,6 @@ bool Json2Route::parseJson(const json& j) {
         return true;
     } catch (const std::exception& e) {
         return false;
-
     }
 }
 
