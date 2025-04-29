@@ -1,5 +1,5 @@
 #ifndef CONSTANTS_HPP
-#define CONSTANTS_HPP
+
 
 // 备忘参数
 const int INKLING_RESOLUTION_X = 1920; //1920 resolution
@@ -10,9 +10,9 @@ const int MOTOR_CNT_PER_REVOLUTION = 6400; //6400 counts
 const int MOTOR_LENGTH_PER_REVOLUTION = 75; //75mm
 
 // X轴每个分辨率点对应8.57个电机计数(193mm/1920分辨率*6400计数/75mm)
-const float CNT_PER_RESOLUTION_X = (float)MOTOR_CNT_PER_REVOLUTION * INKLING_LENGTH_X / (MOTOR_LENGTH_PER_REVOLUTION * INKLING_RESOLUTION_X); // counts/resolution
+//const float CNT_PER_RESOLUTION_X = (float)MOTOR_CNT_PER_REVOLUTION * INKLING_LENGTH_X / (MOTOR_LENGTH_PER_REVOLUTION * INKLING_RESOLUTION_X); // counts/resolution
 // Y轴每个分辨率点对应6.44个电机计数(145mm/1920分辨率*6400计数/75mm)
-const float CNT_PER_RESOLUTION_Y = (float)MOTOR_CNT_PER_REVOLUTION * INKLING_LENGTH_Y / (MOTOR_LENGTH_PER_REVOLUTION * INKLING_RESOLUTION_Y); // counts/resolution
+//const float CNT_PER_RESOLUTION_Y = (float)MOTOR_CNT_PER_REVOLUTION * INKLING_LENGTH_Y / (MOTOR_LENGTH_PER_REVOLUTION * INKLING_RESOLUTION_Y); // counts/resolution
 // 同上 - 坐标转换系数
 const float CNT_PER_RESOLUTION_X = 386.0f/45.0f;  // X轴位置转换系数
 const float CNT_PER_RESOLUTION_Y = 58.0f/9.0f;    // Y轴位置转换系数
