@@ -1,5 +1,5 @@
 #ifndef CONSTANTS_HPP
-
+#define CONSTANTS_HPP
 
 // 备忘参数
 const int INKLING_RESOLUTION_X = 1920; //1920 resolution

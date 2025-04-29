@@ -10,8 +10,8 @@
 #include <atomic>
 #include "./WacomInkling.hpp"  // Add WacomInkling header
 #include "./json2Route.hpp"
+#include "./filter.hpp"
 #include <cstdlib>  // Add for system() call
-#include "filter.cpp"
 
 
 using namespace sFnd;
