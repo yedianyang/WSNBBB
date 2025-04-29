@@ -1,80 +1,54 @@
-# 编译器设置
-CXX = g++
-CXXFLAGS = -std=c++17 -Wall -Wextra -I.
+# Makefile for Example-Tracking_Json_Pattern
+# Creates an executable called tracking_example_json_pattern
 
-# 目标文件
-TARGET = tracking_example_json_pattern
+EXEC_NAME := "tracking_example_json_pattern"
 
-# 源文件
-SRCS = Example_Tracking_Json_Pattern.cpp \
-       WacomInkling.cpp \
-       json2Route.cpp \
-       filter.cpp \
-       constants.cpp
-
-# 目标文件
-OBJS = $(SRCS:.cpp=.o)
-
-# 检测操作系统
-UNAME_S := $(shell uname -s)
-
-# 根据操作系统设置包含路径和库路径
-ifeq ($(UNAME_S),Darwin)
-    # macOS 设置
-    # Homebrew 包路径
-    HOMEBREW_PREFIX := $(shell brew --prefix)
-    # 包含路径
-    CXXFLAGS += -I$(HOMEBREW_PREFIX)/include \
-                -I$(HOMEBREW_PREFIX)/Cellar/nlohmann-json/3.12.0/include \
-                -I$(HOMEBREW_PREFIX)/Cellar/libusb/1.0.26/include
-    # 库路径
-    LIBS = -L$(HOMEBREW_PREFIX)/lib \
-           -L$(HOMEBREW_PREFIX)/Cellar/libusb/1.0.26/lib \
-           -lusb-1.0 \
-           -lpthread
+# Detect operating system and set appropriate include path
+ifeq ($(shell uname), Darwin)
+    # macOS specific settings
+    INCLUDE_DIR := "../Library/ClearPath-SC-Development/Reference/sdk/sFoundation Source/inc/inc-pub"
+    LIBUSB_INCLUDE := "/opt/homebrew/opt/libusb/include"
+    LIBUSB_LIB := "/opt/homebrew/opt/libusb/lib"
+    JSON_INCLUDE := "/opt/homebrew/include"  # nlohmann/json 头文件路径
+    LIBS := -lsFoundation20 -lpthread -L$(LIBUSB_LIB) -lusb-1.0
+    CXXFLAGS := -I$(INCLUDE_DIR) -I$(LIBUSB_INCLUDE) -I$(JSON_INCLUDE) -I. $(OPTIMIZATION) -std=c++11
+    # For macOS, we use DYLD_LIBRARY_PATH instead of RPATH
+    LDFLAGS := -L$(LIBUSB_LIB)
+else ifeq ($(shell uname), Linux)
+    # Linux (Raspberry Pi) specific settings
+    INCLUDE_DIR := "~/src/Teknic/inc/inc-pub"
+    JSON_INCLUDE := "/usr/include"  # Linux 系统下的 nlohmann/json 头文件路径
+    LIBS := -lsFoundation20 -lpthread -lusb-1.0 -latomic
+    CXXFLAGS := -I$(INCLUDE_DIR) -I$(JSON_INCLUDE) -I. $(OPTIMIZATION)
 else
-    # Linux (Debian/Ubuntu) 设置
-    CXXFLAGS += -I/usr/include/nlohmann \
-                -I/usr/include/libusb-1.0
-    LIBS = -L/usr/lib \
-           -lusb-1.0 \
-           -lpthread
+    $(error Unsupported operating system)
 endif
 
-# 默认目标
-all: $(TARGET)
+CC := g++
+OPTIMIZATION := -O3
+DEBUG_OPTIMIZATION := -O0
+DEBUG_CXXFLAGS := $(CXXFLAGS) -Wall -Wextra -pedantic -g3 $(DEBUG_OPTIMIZATION)
 
-# 编译规则
-$(TARGET): $(OBJS)
-	$(CXX) $(OBJS) -o $(TARGET) $(LIBS)
+# Specify source files here
+SRC_FILES := Example_Tracking_Json_Pattern.cpp WacomInkling.cpp json2Route.cpp constants.cpp filter.cpp
+OBJS := $(patsubst %.cpp,%.o,$(SRC_FILES))
 
-# 通用编译规则
+# Default target
+all: $(EXEC_NAME)
+
+# Generic rule to compile a CPP file into an object
 %.o: %.cpp
-	$(CXX) $(CXXFLAGS) -c $< -o $@
+	$(CXX) -c $(CXXFLAGS) -o "$@" $<
 
-# 运行目标
-run: $(TARGET)
-	./$(TARGET)
+$(EXEC_NAME): $(OBJS)
+	$(CC) $(LDFLAGS) -o $(EXEC_NAME) $(OBJS) $(LIBS)
 
-# 清理目标
+# Remove all object files
+.PHONY: clean
 clean:
-	rm -f $(OBJS) $(TARGET)
+	-find . -type f -name "*.o" -delete
 
-# 重新编译
-rebuild: clean all
-
-# 帮助信息
-help:
-	@echo "可用的目标:"
-	@echo "  all      - 编译项目"
-	@echo "  run      - 运行程序"
-	@echo "  clean    - 清理编译文件"
-	@echo "  rebuild  - 重新编译项目"
-	@echo "  help     - 显示此帮助信息"
-	@echo ""
-	@echo "当前操作系统: $(UNAME_S)"
-	@echo "Homebrew 前缀: $(HOMEBREW_PREFIX)"
-	@echo "包含路径: $(CXXFLAGS)"
-	@echo "库路径: $(LIBS)"
-
-.PHONY: all run clean rebuild help 
+# Sayonara. Viciously destroys all build artifacts, including the executable.
+.PHONY: real_clean
+real_clean: clean
+	-rm $(EXEC_NAME) 
