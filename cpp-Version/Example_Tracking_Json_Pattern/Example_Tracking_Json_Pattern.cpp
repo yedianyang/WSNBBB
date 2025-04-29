@@ -11,8 +11,8 @@
 #include "./constants.hpp"
 #include "./json2Route.hpp"
 #include "./WacomInkling.hpp"  // Add WacomInkling header
+#include "./filter.hpp"
 #include <cstdlib>  // Add for system() call
-#include "filter.cpp"
 
 using namespace sFnd;
 
