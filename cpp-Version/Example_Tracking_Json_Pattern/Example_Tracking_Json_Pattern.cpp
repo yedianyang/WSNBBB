@@ -9,8 +9,10 @@
 #include <mutex>
 #include <atomic>
 #include "./WacomInkling.hpp"  // Add WacomInkling header
+#include "./json2Route.hpp"
 #include <cstdlib>  // Add for system() call
 #include "filter.cpp"
+
 
 using namespace sFnd;
 
@@ -238,6 +240,7 @@ void inklingTargetPositionDataThread() {
 	 * 
 	 */
 
+
 	int tarXPosition = 960;
 	int tarYPosition = 960; 
 
@@ -245,229 +248,113 @@ void inklingTargetPositionDataThread() {
 	targetYposition.store(tarYPosition);
 }
 
-int main(int argc, char *argv[])
-{
-	msgUser("Motion Example starting. Press Enter to continue.");
+int main(int argc, char *argv[]) {
+    msgUser("Motion Example starting. Press Enter to continue.");
 
-	size_t portCount = 0;
-	std::vector<std::string> comHubPorts;
+    size_t portCount = 0;
+    std::vector<std::string> comHubPorts;
+    SysManager *myMgr = SysManager::Instance();
 
-	// Create the SysManager object. This object will coordinate actions among various ports
-	//  and within nodes. In this example we use this object to setup and open our port.
-	SysManager *myMgr = SysManager::Instance(); // Create System Manager myMgr
+    try {
+        // 端口初始化和配置
+        SysManager::FindComHubPorts(comHubPorts);
+        printf("Found %d SC Hubs\n", comHubPorts.size());
 
-	// This will try to open the port. If there is an error/exception during the port opening,
-	// the code will jump to the catch loop where detailed information regarding the error will be displayed;
-	// otherwise the catch loop is skipped over
-	try
-	{
+        for (portCount = 0; portCount < comHubPorts.size() && portCount < NET_CONTROLLER_MAX; portCount++)
+        {
 
-		SysManager::FindComHubPorts(comHubPorts);
-		printf("Found %d SC Hubs\n", comHubPorts.size());
+            myMgr->ComHubPort(portCount, comHubPorts[portCount].c_str()); // define the first SC Hub port (port 0) to be associated
+                                                                          //  with COM portnum (as seen in device manager)
+        }
 
-		for (portCount = 0; portCount < comHubPorts.size() && portCount < NET_CONTROLLER_MAX; portCount++)
-		{
+        if (portCount < 0)
+        {
 
-			myMgr->ComHubPort(portCount, comHubPorts[portCount].c_str()); // define the first SC Hub port (port 0) to be associated
-																		  //  with COM portnum (as seen in device manager)
-		}
+            printf("Unable to locate SC hub port\n");
 
-		if (portCount < 0)
-		{
+            msgUser("Press any key to continue."); // pause so the user can see the error message; waits for user to press a key
 
-			printf("Unable to locate SC hub port\n");
+            return -1; // This terminates the main program
+        }
+        // printf("\n I will now open port \t%i \n \n", portnum);
+        myMgr->PortsOpen(portCount); // Open the port
 
-			msgUser("Press any key to continue."); // pause so the user can see the error message; waits for user to press a key
+        // 获取系统支持的线程数
+        unsigned int numThreads = std::thread::hardware_concurrency();
+        std::cout << "Number of CPU cores: " << numThreads << std::endl;
 
-			return -1; // This terminates the main program
-		}
-		// printf("\n I will now open port \t%i \n \n", portnum);
-		myMgr->PortsOpen(portCount); // Open the port
+        // 获取端口引用
+        IPort &myPort = myMgr->Ports(0);  // 假设使用第一个端口
 
-		// 获取系统支持的线程数
-		unsigned int numThreads = std::thread::hardware_concurrency();
-		std::cout << "Number of CPU cores: " << numThreads << std::endl;
+        try {
+            // Wacom Inkling 初始化
+            WacomInkling inkling;
+            if (!inkling.initialize()) {
+                printf("Failed to reset Wacom Inkling: %s\n", inkling.getLastError().c_str());
+                printf("Please check:\n");
+                printf("1. Device is properly connected via USB\n");
+                printf("2. USB permissions are correctly set\n");
+                printf("3. No other application is using the device\n");
+                printf("4. Try unplugging and replugging the device\n");
+                return -1;
+            }
+            
+            // 设备初始化成功后，创建并启动所有线程
+            std::thread inklingThread(inklingDataThread, std::ref(inkling));
+            std::thread inklingTargetPositionThread(inklingTargetPositionDataThread);
+            std::thread motorPositionThread(motorPositionDataThread, std::ref(myPort));
+            std::thread motorThreadX(motorControlThreadX, std::ref(myPort));
+            std::thread motorThreadY(motorControlThreadY, std::ref(myPort));
+            std::thread displayThread(displayDataThread);
 
-		for (size_t i = 0; i < portCount; i++)
-		{
-			IPort &myPort = myMgr->Ports(i);
+            // 主循环
+            while (true) {
+                printf("\nPress 'q' to quit: ");
+                std::string input;
+                std::getline(std::cin, input);
 
-			printf(" Port[%d]: state=%d, nodes=%d\n",
-				   myPort.NetNumber(), myPort.OpenState(), myPort.NodeCount());
+                if (input == "q" || input == "Q") {
+                    inklingRunning = false;
+                    break;
+                }
+            }
 
-			// Once the code gets past this point, it can be assumed that the Port has been opened without issue
-			// Now we can get a reference to our port object which we will use to access the node objects
+            // 清理线程
+            printf("\nCleaning up...\n");
+            inklingThread.join();
+            inklingTargetPositionThread.join();
+            motorPositionThread.join();
+            motorThreadX.join();
+            motorThreadY.join();
+            displayThread.join();
+            
+            // 清理设备
+            inkling.stop();
+            inkling.release();
+            
+            // 禁用节点
+            for (size_t iNode = 0; iNode < myPort.NodeCount(); iNode++) {
+                myPort.Nodes(iNode).EnableReq(false);
+            }
 
-			for (size_t iNode = 0; iNode < myPort.NodeCount(); iNode++)
-			{
-				// Create a shortcut reference for a node
-				INode &theNode = myPort.Nodes(iNode);
+        } catch (const std::exception& e) {
+            printf("Error during Inkling operation: %s\n", e.what());
+            // 确保在异常情况下也能正确清理资源
+            for (size_t iNode = 0; iNode < myPort.NodeCount(); iNode++) {
+                myPort.Nodes(iNode).EnableReq(false);
+            }
+        }
 
-				theNode.EnableReq(false); // Ensure Node is disabled before loading config file
+    } catch (mnErr &theErr) {
+        printf("Failed to disable Nodes\n");
+        printf("Caught error: addr=%d, err=0x%08x\nmsg=%s\n", 
+               theErr.TheAddr, theErr.ErrorCode, theErr.ErrorMsg);
+        msgUser("Press any key to continue.");
+        return 0;
+    }
 
-				myMgr->Delay(200);
-
-				// theNode.Setup.ConfigLoad("Config File path");
-
-				printf("   Node[%d]: type=%d\n", int(iNode), theNode.Info.NodeType());
-				printf("            userID: %s\n", theNode.Info.UserID.Value());
-				printf("        FW version: %s\n", theNode.Info.FirmwareVersion.Value());
-				printf("          Serial #: %d\n", theNode.Info.SerialNumber.Value());
-				printf("             Model: %s\n", theNode.Info.Model.Value());
-
-				// The following statements will attempt to enable the node.  First,
-				//  any shutdowns or NodeStops are cleared, finally the node is enabled
-				theNode.Status.AlertsClear();	// Clear Alerts on node
-				theNode.Motion.NodeStopClear(); // Clear Nodestops on Node
-				theNode.EnableReq(true);		// Enable node
-				// At this point the node is enabled
-				printf("Node \t%zi enabled\n", iNode);
-				double timeout = myMgr->TimeStampMsec() + TIME_TILL_TIMEOUT; // define a timeout in case the node is unable to enable
-																			 // This will loop checking on the Real time values of the node's Ready status
-				while (!theNode.Motion.IsReady())
-				{
-					if (myMgr->TimeStampMsec() > timeout)
-					{
-						if (IsBusPowerLow(theNode))
-						{
-							printf("Error: Bus Power low. Make sure 75V supply is powered on.\n");
-							msgUser("Press any key to continue.");
-							return -1;
-						}
-						printf("Error: Timed out waiting for Node %d to enable\n", iNode);
-						msgUser("Press any key to continue."); // pause so the user can see the error message; waits for user to press a key
-						return -2;
-					}
-				}
-
-				// Enable move interruption capability
-				theNode.Info.Ex.Parameter(98, 1);
-				theNode.Motion.MoveWentDone();
-
-				// At this point the Node is enabled, and we will now check to see if the Node has been homed
-				// Check the Node to see if it has already been homed,
-				if (theNode.Motion.Homing.HomingValid())
-				{
-					if (theNode.Motion.Homing.WasHomed())
-					{
-						printf("Node %d has already been homed, current position is: \t%8.0f \n", iNode, theNode.Motion.PosnMeasured.Value());
-						printf("Rehoming Node... \n");
-					}
-					else
-					{
-						printf("Node [%d] has not been homed.  Homing Node now...\n", iNode);
-					}
-					// Now we will home the Node
-					theNode.Motion.Homing.Initiate();
-
-					timeout = myMgr->TimeStampMsec() + TIME_TILL_TIMEOUT; // define a timeout in case the node is unable to enable
-																		  //  Basic mode - Poll until disabled
-					while (!theNode.Motion.Homing.WasHomed())
-					{
-						if (myMgr->TimeStampMsec() > timeout)
-						{
-							if (IsBusPowerLow(theNode))
-							{
-								printf("Error: Bus Power low. Make sure 75V supply is powered on.\n");
-								msgUser("Press any key to continue.");
-								return -1;
-							}
-							printf("Node did not complete homing:  \n\t -Ensure Homing settings have been defined through ClearView. \n\t -Check for alerts/Shutdowns \n\t -Ensure timeout is longer than the longest possible homing move.\n");
-							msgUser("Press any key to continue."); // pause so the user can see the error message; waits for user to press a key
-							return -2;
-						}
-					}
-					printf("Node completed homing\n");
-				}
-				else
-				{
-					printf("Node[%d] has not had homing setup through ClearView.  The node will not be homed.\n", iNode);
-				}
-			}
-
-			///////////////////////////////////////////////////////////////////////////////////////
-			// At this point we will execute moves based on user input
-			//////////////////////////////////////////////////////////////////////////////////////
-
-			// Initialize Wacom Inkling
-			WacomInkling inkling;
-			printf("Attempting to Initialize Wacom Inkling device...\n");
-			if (!inkling.initialize()) {
-					printf("Failed to reset Wacom Inkling: %s\n", inkling.getLastError().c_str());
-					printf("Please check:\n");
-					printf("1. Device is properly connected via USB\n");
-					printf("2. USB permissions are correctly set\n");
-					printf("3. No other application is using the device\n");
-					printf("4. Try unplugging and replugging the device\n");
-					return -1;
-			}
-			
-			printf("Wacom Inkling reset successfully\n");
-			printf("Starting data acquisition...\n");
-			inkling.start();
-			printf("Data acquisition started\n");
-			printf("Device is ready to track position\n");
-			printf("Press 'q' to quit\n\n");
-
-			// Start all threads
-			std::thread inklingThread(inklingDataThread, std::ref(inkling));
-			std::thread inklingTargetPositionThread(inklingTargetPositionDataThread);
-			std::thread motorPositionThread(motorPositionDataThread, std::ref(myPort));
-			std::thread motorThreadX(motorControlThreadX, std::ref(myPort));
-			std::thread motorThreadY(motorControlThreadY, std::ref(myPort));
-			std::thread displayThread(displayDataThread);
-
-			// Main loop
-			while (true) {
-				printf("\nPress 'q' to quit: ");
-				std::string input;
-				std::getline(std::cin, input);
-
-				if (input == "q" || input == "Q") {
-					inklingRunning = false;  // Signal all threads to stop
-					break;
-				}
-			}
-
-			// Cleanup
-			printf("\nCleaning up...\n");
-			inklingThread.join();
-			inklingTargetPositionThread.join();
-			motorPositionThread.join();
-			motorThreadX.join();
-			motorThreadY.join();
-			displayThread.join();
-			inkling.stop();
-			inkling.release();  // Release USB device before exiting
-			printf("Cleanup completed\n");
-
-
-			//////////////////////////////////////////////////////////////////////////////////////////////
-			// After moves have completed Disable node, and close ports
-			//////////////////////////////////////////////////////////////////////////////////////////////
-			printf("Disabling nodes, and closing port\n");
-			// Disable Nodes
-
-			// for (size_t iNode = 0; iNode < myPort.NodeCount(); iNode++) {
-			// 	// Create a shortcut reference for a node
-			// 	myPort.Nodes(iNode).EnableReq(false);
-			// }
-		}
-	}
-	catch (mnErr &theErr)
-	{
-		printf("Failed to disable Nodes n\n");
-		// This statement will print the address of the error, the error code (defined by the mnErr class),
-		// as well as the corresponding error message.Inkling Position: X=1, Y=70, Pressed=0
-		printf("Caught error: addr=%d, err=0x%08x\nmsg=%s\n", theErr.TheAddr, theErr.ErrorCode, theErr.ErrorMsg);
-
-		msgUser("Press any key to continue."); // pause so the user can see the error message; waits for user to press a key
-		return 0;							   // This terminates the main program
-	}
-
-	// Close down the ports
-	myMgr->PortsClose();
-
-	msgUser("Press any key to continue."); // pause so the user can see the error message; waits for user to press a key
-	return 0;							   // End program
+    // 关闭端口
+    myMgr->PortsClose();
+    msgUser("Press any key to continue.");
+    return 0;
 }
