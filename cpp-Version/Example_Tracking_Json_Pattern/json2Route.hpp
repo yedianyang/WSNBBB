@@ -5,6 +5,8 @@
 #include <nlohmann/json.hpp>
 #include <fstream>
 #include <memory>
+#include <iostream>
+#include <iomanip>
 
 using json = nlohmann::json;
 
@@ -25,6 +27,13 @@ struct Command {
     Command(Type t, double x_pos, double y_pos) 
         : type(t), x(x_pos), y(y_pos) {}
 };
+
+/**
+ * @brief 打印命令信息到控制台
+ * @param cmd 要打印的命令
+ * @details 该方法会将命令的类型和坐标信息打印到控制台，主要用于调试
+ */
+void printCommand(const Command& cmd);
 
 /**
  * @brief 表示单个路径
@@ -78,8 +87,5 @@ private:
     std::vector<Path> paths_;
     double canvasWidth_ = 0.0;
     double canvasHeight_ = 0.0;
-    static const std::vector<Command> emptyCommands_;
+    static const std::vector<Command> emptyCommands_;  // 只声明，不定义 
 };
-
-// 静态成员初始化
-const std::vector<Command> Json2Route::emptyCommands_; 

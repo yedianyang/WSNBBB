@@ -2,7 +2,8 @@
 #include <iostream>
 
 // 静态成员初始化
-const std::vector<Command> Json2Route::emptyCommands_;
+const std::vector<Command> Json2Route::emptyCommands_{};  // 使用空初始化列表
+
 
 /**
  * @brief 从JSON文件加载图案数据
@@ -92,6 +93,7 @@ bool Json2Route::parseJson(const json& j) {
         return true;
     } catch (const std::exception& e) {
         return false;
+
     }
 }
 
@@ -113,5 +115,7 @@ void printCommand(const Command& cmd) {
             typeStr = "PEN_UP";
             break;
     }
-    std::cout << "Type: " << typeStr << ", X: " << cmd.x << ", Y: " << cmd.y << std::endl;
-} 
+    std::cout << std::setw(10) << typeStr 
+              << " X: " << std::setw(6) << cmd.x 
+              << " Y: " << std::setw(6) << cmd.y << std::endl;
+}
