@@ -43,7 +43,7 @@ public:
     Path(const std::string& id, const std::string& style) 
         : id_(id), style_(style) {}
 
-    void addCommand(Command cmd) {
+    void addCommand(const Command& cmd) {
         commands_.push_back(cmd);
     }
 

@@ -27,15 +27,15 @@ bool Json2Route::loadFromFile(const std::string& filename) {
 
 /**
  * @brief 获取所有路径中的所有命令
- * @return 包含所有命令的vector
+ * @return 包含所有命令的vector的const引用
  * @details 该方法会遍历所有路径，并将每个路径中的命令合并到一个vector中返回
  */
-std::vector<Command> Json2Route::getAllCommands() const {
-    std::vector<Command> allCommands;
+const std::vector<Command>& Json2Route::getAllCommands() const {
+    static std::vector<Command> allCommands;
+    allCommands.clear();
     for (const auto& path : paths_) {
-        allCommands.insert(allCommands.end(), 
-                         path.getCommands().begin(), 
-                         path.getCommands().end());
+        const auto& commands = path.getCommands();
+        allCommands.insert(allCommands.end(), commands.begin(), commands.end());
     }
     return allCommands;
 }
@@ -88,18 +88,20 @@ bool Json2Route::parseJson(const json& j) {
                 if (pathJson.find("commands") != pathJson.end()) {
                     for (const auto& cmdJson : pathJson["commands"]) {
                         Command::Type type;
-                        std::string cmdType = cmdJson["type"];
+                        const std::string& cmdType = cmdJson["type"];
                         
                         if (cmdType == "pen_down") type = Command::Type::PEN_DOWN;
                         else if (cmdType == "move") type = Command::Type::MOVE;
                         else if (cmdType == "pen_up") type = Command::Type::PEN_UP;
                         else continue;
 
-                        path.addCommand(Command(type, cmdJson["x"], cmdJson["y"]));
+                        const double x = cmdJson["x"];
+                        const double y = cmdJson["y"];
+                        path.addCommand(Command(type, x, y));
                     }
                 }
                 
-                paths_.push_back(path);
+                paths_.push_back(std::move(path));  // 使用移动语义
             }
         }
         return true;
