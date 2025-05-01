@@ -33,6 +33,10 @@ std::atomic<int> errorYposition(0);
 std::atomic<int> targetXposition(960);
 std::atomic<int> targetYposition(960);
 
+// Global condition variable and mutex for inkling state
+std::condition_variable inklingStateCV;
+std::mutex inklingStateMutx;
+
 // Send message and wait for newline
 void msgUser(const char *msg)
 {
@@ -241,122 +245,77 @@ void motorPositionDataThread(IPort &myPort)
 	}
 }
 
-std::condition_variable cv;
-std::mutex mtx;
-void inklingTargetPositionDataThread_backup(std::vector<Command> commands)
-{
-	/**
-	 * 更新目标位置
-	 * 该函数用于更新目标位置，并根据笔的状态控制执行流程
-	 */
-	if (inklingRunning)
-	{
-
-		for (const auto &command : commands)
-		{
-			if (&command == &commands.back())
-			{
-				inklingRunning = false;
-			}
-
-			int tarXPosition = command.x;
-			int tarYPosition = command.y;
-			Command::Type tarType = command.type;
-
-			targetXposition.store(tarXPosition);
-			targetYposition.store(tarYPosition);
-
-			// Wait for appropriate pen state
-			std::unique_lock<std::mutex> lock(mtx);
-			if (tarType == Command::Type::PEN_UP)
-			{
-				printf("Waiting for PEN_UP\n");
-				// For PEN_UP, wait until pen is NOT pressed
-				cv.wait(lock, [&]()
-						{
-				printf("PEN_UP: %d\n", !latestInklingState.load().pressed);
-				return !latestInklingState.load().pressed; });
-			}
-			else
-			{
-				printf("Waiting for PEN_DOWN or MOVE\n");
-				// For PEN_DOWN and MOVE, wait until pen IS pressed
-				cv.wait(lock, [&]()
-						{
-				printf("PEN_DOWN or MOVE: %d\n", latestInklingState.load().pressed);
-				return latestInklingState.load().pressed; });
-			}
-
-			std::this_thread::sleep_for(std::chrono::seconds(1));
-		}
-	}
-}
-
 void inklingTargetPositionDataThread(std::vector<Command> commands)
 {
 	/**
 	 * 备用实现：使用索引跟踪命令执行进度
 	 * 增加了更详细的状态处理和错误检查
 	 */
-	std::condition_variable cv;
-	std::mutex mtx;
+	const int TIMEOUT_SECONDS = 5;  // 添加超时设置
 
-	if (inklingRunning)
-	{
-		for (size_t i = 0; i < commands.size(); i++)
-	{
+	for (size_t i = 0; i < commands.size() && inklingRunning; i++) {
 		const auto &command = commands[i];
-
-		// 检查是否是最后一个命令
-		if (i == commands.size() - 1)
-		{
-			inklingRunning = false;
-		}
-
-		int tarXPosition = command.x;
-		int tarYPosition = command.y;
-		Command::Type tarType = command.type;
-
+		
 		// 更新目标位置
-		targetXposition.store(tarXPosition);
-		targetYposition.store(tarYPosition);
+		targetXposition.store(command.x);
+		targetYposition.store(command.y);
+		std::cout << "Target position set to: (" << command.x << ", " << command.y << ")" << std::endl;
 
 		// 状态控制和等待
-		std::unique_lock<std::mutex> lock(mtx);
-		switch (tarType)
-		{
-		case Command::Type::PEN_UP:
-			// 等待笔抬起
-			cv.wait(lock, [&]()
-					{ return !latestInklingState.load().pressed; });
-			break;
+		std::unique_lock<std::mutex> lock(inklingStateMutx);
+		bool stateReached = false;
 
-		case Command::Type::PEN_DOWN:
-			// 等待笔压下
-			cv.wait(lock, [&]()
-					{ return latestInklingState.load().pressed; });
-			break;
+		switch (command.type) {
+			case Command::Type::PEN_UP:
+				std::cout << "Waiting for pen up..." << std::endl;
+				stateReached = inklingStateCV.wait_for(lock, 
+					std::chrono::seconds(TIMEOUT_SECONDS),
+					[&]() {
+						bool state = !latestInklingState.load().pressed;
+						std::cout << "Current state: " << (state ? "UP" : "DOWN") << std::endl;
+						return state;
+					});
+				break;
 
-		case Command::Type::MOVE:
-			// 确保笔保持压下状态
-			cv.wait(lock, [&]()
-					{ return latestInklingState.load().pressed; });
-			break;
+			case Command::Type::PEN_DOWN:
+			case Command::Type::MOVE:
+				std::cout << "Waiting for pen down..." << std::endl;
+				stateReached = inklingStateCV.wait_for(lock, 
+					std::chrono::seconds(TIMEOUT_SECONDS),
+					[&]() {
+						bool state = latestInklingState.load().pressed;
+						std::cout << "Current state: " << (state ? "DOWN" : "UP") << std::endl;
+						return state;
+					});
+				break;
 		}
 
-		// 可以添加位置到达检查
-		// cv.wait(lock, [&]() {
-		//     return std::abs(currentXPosition.load() - tarXPosition) < tolerance &&
-		//            std::abs(currentYPosition.load() - tarYPosition) < tolerance;
-		// });
-
-		std::this_thread::sleep_for(std::chrono::seconds(1));
-
-		// 可以添加进度报告
-				std::cout << "Command " << i + 1 << "/" << commands.size()
-						  << " completed" << std::endl;
+		if (!stateReached) {
+			std::cout << "Timeout waiting for pen state change!" << std::endl;
+			continue;  // 或者根据需求处理超时情况
 		}
+
+		// 等待位置到达（可选）
+		const int positionTolerance = 10;
+		bool positionReached = inklingStateCV.wait_for(lock,
+			std::chrono::seconds(TIMEOUT_SECONDS),
+			[&]() {
+				int currentX = currentXPosition.load();
+				int currentY = currentYPosition.load();
+				return std::abs(currentX - command.x) < positionTolerance &&
+					   std::abs(currentY - command.y) < positionTolerance;
+			});
+
+		std::this_thread::sleep_for(std::chrono::seconds(2));
+		
+		std::cout << "Command " << i + 1 << "/" << commands.size()
+				  << (positionReached ? " completed" : " partially completed") 
+				  << std::endl;
 	}
+
+	// 所有命令执行完毕
+	inklingRunning = false;
+	std::cout << "All commands processed" << std::endl;
 }
 
 int main(int argc, char *argv[])
