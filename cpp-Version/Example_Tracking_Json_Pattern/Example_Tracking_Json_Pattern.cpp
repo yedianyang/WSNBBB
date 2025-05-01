@@ -514,7 +514,7 @@ int main(int argc, char *argv[])
 				printCommand(command);
 			}
 
-			// 打印所有命令
+			
 
 			printf("Press 'q' to quit\n\n");
 
@@ -525,6 +525,14 @@ int main(int argc, char *argv[])
 			std::thread motorThreadX(motorControlThreadX, std::ref(myPort));
 			std::thread motorThreadY(motorControlThreadY, std::ref(myPort));
 			std::thread displayThread(displayDataThread);
+
+			printf("Press Enter to start main thread...\n");
+			while(std::cin.get() != '\n') {
+				// Keep waiting until Enter is pressed
+			}
+
+			msgUser("Press Any key to start main thread...\n");
+
 
 			// Main loop
 			while (true) {
