@@ -513,8 +513,9 @@ int main(int argc, char *argv[])
 				// Command 没有 toString 方法，需要使用 printCommand
 				printCommand(command);
 			}
-
 			
+			printf("Press Enter to start main thread...\n");
+			std::cin.get();
 
 			printf("Press 'q' to quit\n\n");
 
@@ -525,13 +526,6 @@ int main(int argc, char *argv[])
 			std::thread motorThreadX(motorControlThreadX, std::ref(myPort));
 			std::thread motorThreadY(motorControlThreadY, std::ref(myPort));
 			std::thread displayThread(displayDataThread);
-
-			printf("Press Enter to start main thread...\n");
-			while(std::cin.get() != '\n') {
-				// Keep waiting until Enter is pressed
-			}
-
-			msgUser("Press Any key to start main thread...\n");
 
 
 			// Main loop
