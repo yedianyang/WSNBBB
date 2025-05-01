@@ -440,14 +440,17 @@ int main(int argc, char *argv[])
 			// 读取json文件
 
 			std::string jsonFilePath = "./Test-Cactus-Pattern.json";
-			std::vector<Command> commands = {};
-			if(!Json2Route json2Route(jsonFilePath)){
+			Json2Route json2Route;  // 先创建对象
+			if(!json2Route.loadFromFile(jsonFilePath)) {  // 然后加载文件
 				printf("Failed to load json file\n");
-			}else{
-				commands = json2Route.getAllCommands();
-				for(const auto& command : commands){
-					printf("Command: %s\n", command.toString().c_str());
-				}
+				return -1;
+			}
+
+			std::vector<Command> commands = json2Route.getAllCommands();
+			
+			for(const auto& command : commands) {
+				// Command 没有 toString 方法，需要使用 printCommand
+				printCommand(command);
 			}
 
 			// 打印所有命令
