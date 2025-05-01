@@ -10,9 +10,9 @@
 #include <atomic>
 #include "./constants.hpp"
 #include "./json2Route.hpp"
-#include "./WacomInkling.hpp"  // Add WacomInkling header
+#include "./WacomInkling.hpp" // Add WacomInkling header
 #include "./filter.hpp"
-#include <cstdlib>  // Add for system() call
+#include <cstdlib> // Add for system() call
 
 using namespace sFnd;
 
@@ -47,12 +47,13 @@ bool IsBusPowerLow(INode &theNode)
 }
 
 // Function to clear the console screen
-void clearScreen() {
-    #ifdef _WIN32
-        system("cls");
-    #else
-        system("clear");
-    #endif
+void clearScreen()
+{
+#ifdef _WIN32
+	system("cls");
+#else
+	system("clear");
+#endif
 }
 
 //*********************************************************************************
@@ -64,9 +65,10 @@ void clearScreen() {
 #define VEL_LIM_RPM 800
 #define TIME_TILL_TIMEOUT 10000 // The timeout used for homing(ms)
 
-void moveMotor(INode& theNode, int position) {
+void moveMotor(INode &theNode, int position)
+{
 	// 这里的锁没有实际作用，因为moveMotor函数内部没有共享资源需要保护
-	
+
 	theNode.AccUnit(INode::RPM_PER_SEC);
 	theNode.VelUnit(INode::RPM);
 	theNode.Motion.AccLimit = ACC_LIM_RPM_PER_SEC;
@@ -75,33 +77,38 @@ void moveMotor(INode& theNode, int position) {
 	theNode.Motion.MovePosnStart(position, true);
 }
 
-void inklingDataThread(WacomInkling& inkling) {
-	while (inklingRunning) {
+void inklingDataThread(WacomInkling &inkling)
+{
+	while (inklingRunning)
+	{
 		auto loop_start = std::chrono::high_resolution_clock::now();
-		
+
 		InklingData data;
-		if (inkling.getData(data)) {
+		if (inkling.getData(data))
+		{
 			// Store latest data
 			latestInklingState.store(InklingState{data.x, data.y, data.pressed,
-				std::chrono::duration_cast<std::chrono::microseconds>(
-					std::chrono::high_resolution_clock::now() - loop_start).count()
-			});
-		}	
+												  std::chrono::duration_cast<std::chrono::microseconds>(
+													  std::chrono::high_resolution_clock::now() - loop_start)
+													  .count()});
+		}
 		std::this_thread::sleep_for(std::chrono::milliseconds(1));
 	}
 }
 
-void displayDataThread() {
-	while (inklingRunning) {
+void displayDataThread()
+{
+	while (inklingRunning)
+	{
 		// Clear screen and print watch-like display
 		clearScreen();
 		printf("┌─────────────────────────────────────────────┐\n");
 		printf("│              System Status                  │\n");
 		printf("├─────────────────────────────────────────────┤\n");
 		printf("│ Inkling Position:                           │\n");
-		printf("│   X: %-4d  Y: %-4d  Pressed: %d              │\n", 
-			   latestInklingState.load().x, 
-			   latestInklingState.load().y, 
+		printf("│   X: %-4d  Y: %-4d  Pressed: %d              │\n",
+			   latestInklingState.load().x,
+			   latestInklingState.load().y,
 			   latestInklingState.load().pressed);
 		printf("├─────────────────────────────────────────────┤\n");
 		printf("│ Motor Status:                               │\n");
@@ -118,130 +125,189 @@ void displayDataThread() {
 		printf("│   Motor Y Loop Time: %-6lld us             │\n", motorYLoopTime.load());
 		printf("│   Motor Data Loop Time: %-6lld us          │\n", motorDataLoopTime.load());
 		printf("└─────────────────────────────────────────────┘\n");
-		
+
 		std::this_thread::sleep_for(std::chrono::milliseconds(33)); // ~20 FPS
 	}
 }
 
-void motorControlThreadX(IPort& myPort) {
+void motorControlThreadX(IPort &myPort)
+{
 	/**
 	 * X轴电机控制线程函数，基于Inkling输入控制电机运动
-	 * 
+	 *
 	 * 该函数在inklingRunning为true时循环运行，主要功能包括：
 	 * 1. 获取最新的Inkling状态并计算目标X轴位置
 	 * 2. 读取当前X轴电机位置并存储
 	 * 3. 如果目标位置在有效范围内（0-45000），则移动电机到目标位置
 	 * 4. 跟踪执行时间以监控性能
-	 * 
+	 *
 	 * @param myPort 电机控制端口接口的引用
 	 */
 
-	while (inklingRunning) {
+	while (inklingRunning)
+	{
 		auto start_time = std::chrono::high_resolution_clock::now();
-		//InklingState currentState = latestInklingState.load();
-		
+		// InklingState currentState = latestInklingState.load();
+
 		int currentInklingX = latestInklingState.load().x;
 		int curMotorXPosition = currentXPosition.load();
-		int tarXPosition = targetXposition.load() * 1920/193;
+		int tarXPosition = targetXposition.load() * 1920 / 193;
 
-		int motorGoToPositionX = (currentInklingX - tarXPosition) * 386/45 + curMotorXPosition;
+		int motorGoToPositionX = (currentInklingX - tarXPosition) * 386 / 45 + curMotorXPosition;
 
 		motorGoToPositionX = adaptiveLowPassFilter(curMotorXPosition, motorGoToPositionX, 0.5f);
 
-		if (curMotorXPosition >= 0 && curMotorXPosition <= 46000) {
-			//if(motorPositionX >= 0 && motorPositionX <= 45000) {
-				moveMotor(myPort.Nodes(0), motorGoToPositionX);
+		if (curMotorXPosition >= 0 && curMotorXPosition <= 46000)
+		{
+			// if(motorPositionX >= 0 && motorPositionX <= 45000) {
+			moveMotor(myPort.Nodes(0), motorGoToPositionX);
 			//}
 		}
 		std::this_thread::sleep_for(std::chrono::milliseconds(1));
 
 		auto end_time = std::chrono::high_resolution_clock::now();
 		auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
-		
-		
+
 		motorXLoopTime.store(duration.count());
 	}
 }
 
-
-
-void motorControlThreadY(IPort& myPort) {
+void motorControlThreadY(IPort &myPort)
+{
 	/**
 	 * Y轴电机控制线程函数，基于Inkling输入控制电机运动
-	 * 
+	 *
 	 * 该函数在inklingRunning为true时循环运行，主要功能包括：
 	 * 1. 获取最新的Inkling状态并计算目标Y轴位置
 	 * 2. 读取当前Y轴电机位置并存储
 	 * 3. 如果目标位置在有效范围内（0-45000），则移动电机到目标位置
 	 * 4. 跟踪执行时间以监控性能
-	 * 
+	 *
 	 * @param myPort 电机控制端口接口的引用
 	 */
-	while (inklingRunning) {
+	while (inklingRunning)
+	{
 		auto start_time = std::chrono::high_resolution_clock::now();
 
 		int currentInklingY = latestInklingState.load().y;
 		int curMotorYPosition = currentYPosition.load();
-		int tarYPosition = targetYposition.load() * 1920/145;
+		int tarYPosition = targetYposition.load() * 1920 / 145;
 
-		int motorGoToPositionY = (currentInklingY - tarYPosition) * 58/9 + curMotorYPosition;
+		int motorGoToPositionY = (currentInklingY - tarYPosition) * 58 / 9 + curMotorYPosition;
 
 		motorGoToPositionY = adaptiveLowPassFilter(curMotorYPosition, motorGoToPositionY, 0.5f);
 
-		//printf("motorGoToPositionY: %d\n", motorGoToPositionY);
+		// printf("motorGoToPositionY: %d\n", motorGoToPositionY);
 
-		if (curMotorYPosition >= 0 && curMotorYPosition <= 45000) {
-			//if(motorPositionY >= 0 && motorPositionY <= 45000) {
-				moveMotor(myPort.Nodes(1), motorGoToPositionY);
+		if (curMotorYPosition >= 0 && curMotorYPosition <= 45000)
+		{
+			// if(motorPositionY >= 0 && motorPositionY <= 45000) {
+			moveMotor(myPort.Nodes(1), motorGoToPositionY);
 			//}
 		}
 
-		
 		std::this_thread::sleep_for(std::chrono::milliseconds(1));
 
 		auto end_time = std::chrono::high_resolution_clock::now();
 		auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
-		
+
 		motorYLoopTime.store(duration.count());
 	}
 }
 
-void motorPositionDataThread(IPort& myPort) {
-    while (inklingRunning) {
+void motorPositionDataThread(IPort &myPort)
+{
+	while (inklingRunning)
+	{
 		auto start_time = std::chrono::high_resolution_clock::now();
 
-        int curMotorXPosition = int(myPort.Nodes(0).Motion.PosnMeasured.Value());
-        int curMotorYPosition = int(myPort.Nodes(1).Motion.PosnMeasured.Value());
+		int curMotorXPosition = int(myPort.Nodes(0).Motion.PosnMeasured.Value());
+		int curMotorYPosition = int(myPort.Nodes(1).Motion.PosnMeasured.Value());
 
 		int errMotorXPosition = int(myPort.Nodes(0).Motion.PosnTracking.Value());
 		int errMotorYPosition = int(myPort.Nodes(1).Motion.PosnTracking.Value());
-
 
 		currentXPosition.store(curMotorXPosition);
 		currentYPosition.store(curMotorYPosition);
 		errorXposition.store(errMotorXPosition);
 		errorYposition.store(errMotorYPosition);
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(1)); // Adjust the sleep time as needed
+		std::this_thread::sleep_for(std::chrono::milliseconds(1)); // Adjust the sleep time as needed
 
 		auto end_time = std::chrono::high_resolution_clock::now();
 		auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
 
 		motorDataLoopTime.store(duration.count());
-    }
+	}
 }
 
 std::condition_variable cv;
 std::mutex mtx;
-void inklingTargetPositionDataThread(std::vector<Command> commands) {
+void inklingTargetPositionDataThread(std::vector<Command> commands)
+{
 	/**
 	 * 更新目标位置
 	 * 该函数用于更新目标位置，并根据笔的状态控制执行流程
 	 */
+	if (inklingRunning)
+	{
 
+		for (const auto &command : commands)
+		{
+			if (&command == &commands.back())
+			{
+				inklingRunning = false;
+			}
 
-	for(const auto& command : commands) {
-		if(&command == &commands.back()) {
+			int tarXPosition = command.x;
+			int tarYPosition = command.y;
+			Command::Type tarType = command.type;
+
+			targetXposition.store(tarXPosition);
+			targetYposition.store(tarYPosition);
+
+			// Wait for appropriate pen state
+			std::unique_lock<std::mutex> lock(mtx);
+			if (tarType == Command::Type::PEN_UP)
+			{
+				printf("Waiting for PEN_UP\n");
+				// For PEN_UP, wait until pen is NOT pressed
+				cv.wait(lock, [&]()
+						{
+				printf("PEN_UP: %d\n", !latestInklingState.load().pressed);
+				return !latestInklingState.load().pressed; });
+			}
+			else
+			{
+				printf("Waiting for PEN_DOWN or MOVE\n");
+				// For PEN_DOWN and MOVE, wait until pen IS pressed
+				cv.wait(lock, [&]()
+						{
+				printf("PEN_DOWN or MOVE: %d\n", latestInklingState.load().pressed);
+				return latestInklingState.load().pressed; });
+			}
+
+			std::this_thread::sleep_for(std::chrono::seconds(1));
+		}
+	}
+}
+
+void inklingTargetPositionDataThread_backup(std::vector<Command> commands)
+{
+	/**
+	 * 备用实现：使用索引跟踪命令执行进度
+	 * 增加了更详细的状态处理和错误检查
+	 */
+	std::condition_variable cv;
+	std::mutex mtx;
+
+	for (size_t i = 0; i < commands.size(); i++)
+	{
+		const auto &command = commands[i];
+
+		// 检查是否是最后一个命令
+		if (i == commands.size() - 1)
+		{
 			inklingRunning = false;
 		}
 
@@ -249,94 +315,46 @@ void inklingTargetPositionDataThread(std::vector<Command> commands) {
 		int tarYPosition = command.y;
 		Command::Type tarType = command.type;
 
+		// 更新目标位置
 		targetXposition.store(tarXPosition);
 		targetYposition.store(tarYPosition);
 
-		// Wait for appropriate pen state
+		// 状态控制和等待
 		std::unique_lock<std::mutex> lock(mtx);
-		if (tarType == Command::Type::PEN_UP) {
-			printf("Waiting for PEN_UP\n");
-			// For PEN_UP, wait until pen is NOT pressed
-			cv.wait(lock, [&]() {
-				printf("PEN_UP: %d\n", !latestInklingState.load().pressed);
-				return !latestInklingState.load().pressed;
-			});
-		} else {
-			printf("Waiting for PEN_DOWN or MOVE\n");
-			// For PEN_DOWN and MOVE, wait until pen IS pressed
-			cv.wait(lock, [&]() {
-				printf("PEN_DOWN or MOVE: %d\n", latestInklingState.load().pressed);
-				return latestInklingState.load().pressed;
-			});
+		switch (tarType)
+		{
+		case Command::Type::PEN_UP:
+			// 等待笔抬起
+			cv.wait(lock, [&]()
+					{ return !latestInklingState.load().pressed; });
+			break;
+
+		case Command::Type::PEN_DOWN:
+			// 等待笔压下
+			cv.wait(lock, [&]()
+					{ return latestInklingState.load().pressed; });
+			break;
+
+		case Command::Type::MOVE:
+			// 确保笔保持压下状态
+			cv.wait(lock, [&]()
+					{ return latestInklingState.load().pressed; });
+			break;
 		}
 
-    std::this_thread::sleep_for(std::chrono::seconds(1));
+		// 可以添加位置到达检查
+		// cv.wait(lock, [&]() {
+		//     return std::abs(currentXPosition.load() - tarXPosition) < tolerance &&
+		//            std::abs(currentYPosition.load() - tarYPosition) < tolerance;
+		// });
+
+		std::this_thread::sleep_for(std::chrono::seconds(1));
+
+		// 可以添加进度报告
+		std::cout << "Command " << i + 1 << "/" << commands.size()
+				  << " completed" << std::endl;
 	}
 }
-
-void inklingTargetPositionDataThread_backup(std::vector<Command> commands) {
-    /**
-     * 备用实现：使用索引跟踪命令执行进度
-     * 增加了更详细的状态处理和错误检查
-     */
-    std::condition_variable cv;
-    std::mutex mtx;
-    
-    for(size_t i = 0; i < commands.size(); i++) {
-        const auto& command = commands[i];
-        
-        // 检查是否是最后一个命令
-        if(i == commands.size() - 1) {
-            inklingRunning = false;
-        }
-
-        int tarXPosition = command.x;
-        int tarYPosition = command.y;
-        Command::Type tarType = command.type;
-
-        // 更新目标位置
-        targetXposition.store(tarXPosition);
-        targetYposition.store(tarYPosition);
-
-        // 状态控制和等待
-        std::unique_lock<std::mutex> lock(mtx);
-        switch(tarType) {
-            case Command::Type::PEN_UP:
-                // 等待笔抬起
-                cv.wait(lock, [&]() {
-                    return !latestInklingState.load().pressed;
-                });
-                break;
-                
-            case Command::Type::PEN_DOWN:
-                // 等待笔压下
-                cv.wait(lock, [&]() {
-                    return latestInklingState.load().pressed;
-                });
-                break;
-                
-            case Command::Type::MOVE:
-                // 确保笔保持压下状态
-                cv.wait(lock, [&]() {
-                    return latestInklingState.load().pressed;
-                });
-                break;
-        }
-
-        // 可以添加位置到达检查
-        // cv.wait(lock, [&]() {
-        //     return std::abs(currentXPosition.load() - tarXPosition) < tolerance &&
-        //            std::abs(currentYPosition.load() - tarYPosition) < tolerance;
-        // });
-
-        std::this_thread::sleep_for(std::chrono::seconds(1));
-        
-        // 可以添加进度报告
-        std::cout << "Command " << i + 1 << "/" << commands.size() 
-                  << " completed" << std::endl;
-    }
-}
-
 
 int main(int argc, char *argv[])
 {
@@ -485,35 +503,37 @@ int main(int argc, char *argv[])
 			// Initialize Wacom Inkling
 			WacomInkling inkling;
 			printf("Attempting to Initialize Wacom Inkling device...\n");
-			if (!inkling.initialize()) {
-					printf("Failed to reset Wacom Inkling: %s\n", inkling.getLastError().c_str());
-					printf("Please check:\n");
-					printf("1. Device is properly connected via USB\n");
-					printf("2. USB permissions are correctly set\n");
-					printf("3. No other application is using the device\n");
-					printf("4. Try unplugging and replugging the device\n");
-					return -1;
+			if (!inkling.initialize())
+			{
+				printf("Failed to reset Wacom Inkling: %s\n", inkling.getLastError().c_str());
+				printf("Please check:\n");
+				printf("1. Device is properly connected via USB\n");
+				printf("2. USB permissions are correctly set\n");
+				printf("3. No other application is using the device\n");
+				printf("4. Try unplugging and replugging the device\n");
+				return -1;
 			}
-			
+
 			printf("Wacom Inkling reset successfully\n");
 			printf("Starting data acquisition...\n");
 			inkling.start();
 			printf("Data acquisition started\n");
 			printf("Device is ready to track position\n");
 
-
 			// 读取json文件
 
 			std::string jsonFilePath = "./Test-Cactus-Pattern.json";
-			Json2Route json2Route;  // 先创建对象
-			if(!json2Route.loadFromFile(jsonFilePath)) {  // 然后加载文件
+			Json2Route json2Route; // 先创建对象
+			if (!json2Route.loadFromFile(jsonFilePath))
+			{ // 然后加载文件
 				printf("Failed to load json file\n");
 				return -1;
 			}
 
 			std::vector<Command> commands = json2Route.getAllCommands();
-			
-			for(const auto& command : commands) {
+
+			for (const auto &command : commands)
+			{
 				// Command 没有 toString 方法，需要使用 printCommand
 				printCommand(command);
 			}
@@ -526,17 +546,18 @@ int main(int argc, char *argv[])
 			std::thread motorPositionThread(motorPositionDataThread, std::ref(myPort));
 			std::thread motorThreadX(motorControlThreadX, std::ref(myPort));
 			std::thread motorThreadY(motorControlThreadY, std::ref(myPort));
-			//std::thread displayThread(displayDataThread);
-
+			// std::thread displayThread(displayDataThread);
 
 			// Main loop
-			while (true) {
+			while (true)
+			{
 				printf("\nPress 'q' to quit: ");
 				std::string input;
 				std::getline(std::cin, input);
 
-				if (input == "q" || input == "Q") {
-					inklingRunning = false;  // Signal all threads to stop
+				if (input == "q" || input == "Q")
+				{
+					inklingRunning = false; // Signal all threads to stop
 					break;
 				}
 			}
@@ -548,11 +569,10 @@ int main(int argc, char *argv[])
 			motorPositionThread.join();
 			motorThreadX.join();
 			motorThreadY.join();
-			//displayThread.join();
+			// displayThread.join();
 			inkling.stop();
-			inkling.release();  // Release USB device before exiting
+			inkling.release(); // Release USB device before exiting
 			printf("Cleanup completed\n");
-
 
 			//////////////////////////////////////////////////////////////////////////////////////////////
 			// After moves have completed Disable node, and close ports
