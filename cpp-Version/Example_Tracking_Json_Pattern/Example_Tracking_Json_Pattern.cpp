@@ -249,14 +249,14 @@ void inklingTargetPositionDataThread(std::vector<Command> commands) {
 			if(command == commands.back()) inklingRunning = false;
 			int tarXPosition = command.x; // in mm
 			int tarYPosition = command.y; // in mm
-			Type tarType = command.type;
+			Command::Type tarType = command.type;
 
 			targetXposition.store(tarXPosition); // * 1920/193); //in resolution
 			targetYposition.store(tarYPosition); // * 1920/145); //in resolution
 
 			// Wait for appropriate pen state before continuing
 			std::unique_lock<std::mutex> lock(mtx);
-			if (tarType == Type::PEN_UP) {
+			if (tarType == Command::Type::PEN_UP) {
 				// For Pen_Up, wait until pen is NOT pressed
 				cv.wait(lock, [&]() {
 					return !latestInklingState.load().pressed;
