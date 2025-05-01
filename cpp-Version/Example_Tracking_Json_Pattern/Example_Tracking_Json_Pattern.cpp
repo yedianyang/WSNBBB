@@ -473,98 +473,98 @@ int main(int argc, char *argv[])
 					printf("Node[%d] has not had homing setup through ClearView.  The node will not be homed.\n", iNode);
 				}
 			}
-
-			///////////////////////////////////////////////////////////////////////////////////////
-			// At this point we will execute moves based on user input
-			//////////////////////////////////////////////////////////////////////////////////////
-
-			// Initialize Wacom Inkling
-			WacomInkling inkling;
-			printf("Attempting to Initialize Wacom Inkling device...\n");
-			if (!inkling.initialize()) {
-					printf("Failed to reset Wacom Inkling: %s\n", inkling.getLastError().c_str());
-					printf("Please check:\n");
-					printf("1. Device is properly connected via USB\n");
-					printf("2. USB permissions are correctly set\n");
-					printf("3. No other application is using the device\n");
-					printf("4. Try unplugging and replugging the device\n");
-					return -1;
-			}
-			
-			printf("Wacom Inkling reset successfully\n");
-			printf("Starting data acquisition...\n");
-			inkling.start();
-			printf("Data acquisition started\n");
-			printf("Device is ready to track position\n");
-
-
-			// 读取json文件
-
-			std::string jsonFilePath = "./Test-Cactus-Pattern.json";
-			Json2Route json2Route;  // 先创建对象
-			if(!json2Route.loadFromFile(jsonFilePath)) {  // 然后加载文件
-				printf("Failed to load json file\n");
-				return -1;
-			}
-
-			std::vector<Command> commands = json2Route.getAllCommands();
-			
-			for(const auto& command : commands) {
-				// Command 没有 toString 方法，需要使用 printCommand
-				printCommand(command);
-			}
-			
-			printf("Press Enter to start main thread...\n");
-			std::cin.get();
-
-			printf("Press 'q' to quit\n\n");
-
-			// Start all threads
-			std::thread inklingThread(inklingDataThread, std::ref(inkling));
-			std::thread inklingTargetPositionThread(inklingTargetPositionDataThread, std::ref(commands));
-			std::thread motorPositionThread(motorPositionDataThread, std::ref(myPort));
-			std::thread motorThreadX(motorControlThreadX, std::ref(myPort));
-			std::thread motorThreadY(motorControlThreadY, std::ref(myPort));
-			std::thread displayThread(displayDataThread);
-
-
-			// Main loop
-			while (true) {
-				printf("\nPress 'q' to quit: ");
-				std::string input;
-				std::getline(std::cin, input);
-
-				if (input == "q" || input == "Q") {
-					inklingRunning = false;  // Signal all threads to stop
-					break;
-				}
-			}
-
-			// Cleanup
-			printf("\nCleaning up...\n");
-			inklingThread.join();
-			inklingTargetPositionThread.join();
-			motorPositionThread.join();
-			motorThreadX.join();
-			motorThreadY.join();
-			displayThread.join();
-			inkling.stop();
-			inkling.release();  // Release USB device before exiting
-			printf("Cleanup completed\n");
-
-
-			//////////////////////////////////////////////////////////////////////////////////////////////
-			// After moves have completed Disable node, and close ports
-			//////////////////////////////////////////////////////////////////////////////////////////////
-			printf("Disabling nodes, and closing port\n");
-			// Disable Nodes
-
-			// for (size_t iNode = 0; iNode < myPort.NodeCount(); iNode++) {
-			// 	// Create a shortcut reference for a node
-			// 	myPort.Nodes(iNode).EnableReq(false);
-			// }
 		}
+		///////////////////////////////////////////////////////////////////////////////////////
+		// At this point we will execute moves based on user input
+		//////////////////////////////////////////////////////////////////////////////////////
+
+		// Initialize Wacom Inkling
+		WacomInkling inkling;
+		printf("Attempting to Initialize Wacom Inkling device...\n");
+		if (!inkling.initialize()) {
+				printf("Failed to reset Wacom Inkling: %s\n", inkling.getLastError().c_str());
+				printf("Please check:\n");
+				printf("1. Device is properly connected via USB\n");
+				printf("2. USB permissions are correctly set\n");
+				printf("3. No other application is using the device\n");
+				printf("4. Try unplugging and replugging the device\n");
+				return -1;
+		}
+		
+		printf("Wacom Inkling reset successfully\n");
+		printf("Starting data acquisition...\n");
+		inkling.start();
+		printf("Data acquisition started\n");
+		printf("Device is ready to track position\n");
+
+
+		// 读取json文件
+
+		std::string jsonFilePath = "./Test-Cactus-Pattern.json";
+		Json2Route json2Route;  // 先创建对象
+		if(!json2Route.loadFromFile(jsonFilePath)) {  // 然后加载文件
+			printf("Failed to load json file\n");
+			return -1;
+		}
+
+		std::vector<Command> commands = json2Route.getAllCommands();
+		
+		for(const auto& command : commands) {
+			// Command 没有 toString 方法，需要使用 printCommand
+			printCommand(command);
+		}
+
+
+
+		printf("Press 'q' to quit\n\n");
+
+		// Start all threads
+		std::thread inklingThread(inklingDataThread, std::ref(inkling));
+		std::thread inklingTargetPositionThread(inklingTargetPositionDataThread, std::ref(commands));
+		std::thread motorPositionThread(motorPositionDataThread, std::ref(myPort));
+		std::thread motorThreadX(motorControlThreadX, std::ref(myPort));
+		std::thread motorThreadY(motorControlThreadY, std::ref(myPort));
+		std::thread displayThread(displayDataThread);
+
+
+		// Main loop
+		while (true) {
+			printf("\nPress 'q' to quit: ");
+			std::string input;
+			std::getline(std::cin, input);
+
+			if (input == "q" || input == "Q") {
+				inklingRunning = false;  // Signal all threads to stop
+				break;
+			}
+		}
+
+		// Cleanup
+		printf("\nCleaning up...\n");
+		inklingThread.join();
+		inklingTargetPositionThread.join();
+		motorPositionThread.join();
+		motorThreadX.join();
+		motorThreadY.join();
+		displayThread.join();
+		inkling.stop();
+		inkling.release();  // Release USB device before exiting
+		printf("Cleanup completed\n");
+
+
+		//////////////////////////////////////////////////////////////////////////////////////////////
+		// After moves have completed Disable node, and close ports
+		//////////////////////////////////////////////////////////////////////////////////////////////
+		printf("Disabling nodes, and closing port\n");
+		// Disable Nodes
+
+		// for (size_t iNode = 0; iNode < myPort.NodeCount(); iNode++) {
+		// 	// Create a shortcut reference for a node
+		// 	myPort.Nodes(iNode).EnableReq(false);
+		// }
 	}
+	
+	
 	catch (mnErr &theErr)
 	{
 		printf("Failed to disable Nodes n\n");
@@ -581,4 +581,4 @@ int main(int argc, char *argv[])
 
 	msgUser("Press any key to continue."); // pause so the user can see the error message; waits for user to press a key
 	return 0;							   // End program
-}
+}		
