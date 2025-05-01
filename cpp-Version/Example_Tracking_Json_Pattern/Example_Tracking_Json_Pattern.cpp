@@ -243,7 +243,7 @@ void motorPositionDataThread(IPort &myPort)
 
 std::condition_variable cv;
 std::mutex mtx;
-void inklingTargetPositionDataThread(std::vector<Command> commands)
+void inklingTargetPositionDataThread_backup(std::vector<Command> commands)
 {
 	/**
 	 * 更新目标位置
@@ -292,7 +292,7 @@ void inklingTargetPositionDataThread(std::vector<Command> commands)
 	}
 }
 
-void inklingTargetPositionDataThread_backup(std::vector<Command> commands)
+void inklingTargetPositionDataThread(std::vector<Command> commands)
 {
 	/**
 	 * 备用实现：使用索引跟踪命令执行进度
@@ -301,58 +301,73 @@ void inklingTargetPositionDataThread_backup(std::vector<Command> commands)
 	std::condition_variable cv;
 	std::mutex mtx;
 
-	for (size_t i = 0; i < commands.size(); i++)
+	if (inklingRunning)
 	{
-		const auto &command = commands[i];
-
-		// 检查是否是最后一个命令
-		if (i == commands.size() - 1)
+		for (size_t i = 0; i < commands.size(); i++)
 		{
-			inklingRunning = false;
+			const auto &command = commands[i];
+
+			// 检查是否是最后一个命令
+			if (i == commands.size() - 1)
+			{
+				inklingRunning = false;
+			}
+
+			int tarXPosition = command.x;
+			int tarYPosition = command.y;
+			Command::Type tarType = command.type;
+
+			// 更新目标位置
+			targetXposition.store(tarXPosition);
+			targetYposition.store(tarYPosition);
+
+			// 状态控制和等待
+			std::unique_lock<std::mutex> lock(mtx);
+			switch (tarType)
+			{
+			case Command::Type::PEN_UP:
+				// 等待笔抬起
+				cv.wait(lock, [&]()
+						{ return !latestInklingState.load().pressed; });
+				break;
+
+			case Command::Type::PEN_DOWN:
+				std::cout << "Waiting for PEN_DOWN - Current State: "
+						  << (latestInklingState.load().pressed ? "PRESSED" : "NOT PRESSED") << std::endl;
+				// 等待笔压下
+				cv.wait(lock, [&]()
+						{ 
+				bool isPressedNow = latestInklingState.load().pressed;
+				std::cout << "Checking PEN_DOWN - State: " << (isPressedNow ? "PRESSED" : "NOT PRESSED") << std::endl;
+				return isPressedNow; });
+				std::cout << "PEN_DOWN condition met!" << std::endl;
+				break;
+
+			case Command::Type::MOVE:
+				std::cout << "Waiting for MOVE - Current State: "
+						  << (latestInklingState.load().pressed ? "PRESSED" : "NOT PRESSED") << std::endl;
+				// 确保笔保持压下状态
+				cv.wait(lock, [&]()
+						{ 
+				bool isPressedNow = latestInklingState.load().pressed;
+				std::cout << "Checking MOVE - State: " << (isPressedNow ? "PRESSED" : "NOT PRESSED") << std::endl;
+				return isPressedNow; });
+				std::cout << "MOVE condition met!" << std::endl;
+				break;
+			}
+
+			// 可以添加位置到达检查
+			// cv.wait(lock, [&]() {
+			//     return std::abs(currentXPosition.load() - tarXPosition) < tolerance &&
+			//            std::abs(currentYPosition.load() - tarYPosition) < tolerance;
+			// });
+
+			std::this_thread::sleep_for(std::chrono::seconds(1));
+
+			// 可以添加进度报告
+			std::cout << "Command " << i + 1 << "/" << commands.size()
+					  << " completed" << std::endl;
 		}
-
-		int tarXPosition = command.x;
-		int tarYPosition = command.y;
-		Command::Type tarType = command.type;
-
-		// 更新目标位置
-		targetXposition.store(tarXPosition);
-		targetYposition.store(tarYPosition);
-
-		// 状态控制和等待
-		std::unique_lock<std::mutex> lock(mtx);
-		switch (tarType)
-		{
-		case Command::Type::PEN_UP:
-			// 等待笔抬起
-			cv.wait(lock, [&]()
-					{ return !latestInklingState.load().pressed; });
-			break;
-
-		case Command::Type::PEN_DOWN:
-			// 等待笔压下
-			cv.wait(lock, [&]()
-					{ return latestInklingState.load().pressed; });
-			break;
-
-		case Command::Type::MOVE:
-			// 确保笔保持压下状态
-			cv.wait(lock, [&]()
-					{ return latestInklingState.load().pressed; });
-			break;
-		}
-
-		// 可以添加位置到达检查
-		// cv.wait(lock, [&]() {
-		//     return std::abs(currentXPosition.load() - tarXPosition) < tolerance &&
-		//            std::abs(currentYPosition.load() - tarYPosition) < tolerance;
-		// });
-
-		std::this_thread::sleep_for(std::chrono::seconds(1));
-
-		// 可以添加进度报告
-		std::cout << "Command " << i + 1 << "/" << commands.size()
-				  << " completed" << std::endl;
 	}
 }
 
@@ -494,112 +509,111 @@ int main(int argc, char *argv[])
 				{
 					printf("Node[%d] has not had homing setup through ClearView.  The node will not be homed.\n", iNode);
 				}
-			}
 
-			///////////////////////////////////////////////////////////////////////////////////////
-			// At this point we will execute moves based on user input
-			//////////////////////////////////////////////////////////////////////////////////////
+				///////////////////////////////////////////////////////////////////////////////////////
+				// At this point we will execute moves based on user input
+				//////////////////////////////////////////////////////////////////////////////////////
 
-			// Initialize Wacom Inkling
-			WacomInkling inkling;
-			printf("Attempting to Initialize Wacom Inkling device...\n");
-			if (!inkling.initialize())
-			{
-				printf("Failed to reset Wacom Inkling: %s\n", inkling.getLastError().c_str());
-				printf("Please check:\n");
-				printf("1. Device is properly connected via USB\n");
-				printf("2. USB permissions are correctly set\n");
-				printf("3. No other application is using the device\n");
-				printf("4. Try unplugging and replugging the device\n");
-				return -1;
-			}
-
-			printf("Wacom Inkling reset successfully\n");
-			printf("Starting data acquisition...\n");
-			inkling.start();
-			printf("Data acquisition started\n");
-			printf("Device is ready to track position\n");
-
-			// 读取json文件
-
-			std::string jsonFilePath = "./Test-Cactus-Pattern.json";
-			Json2Route json2Route; // 先创建对象
-			if (!json2Route.loadFromFile(jsonFilePath))
-			{ // 然后加载文件
-				printf("Failed to load json file\n");
-				return -1;
-			}
-
-			std::vector<Command> commands = json2Route.getAllCommands();
-
-			for (const auto &command : commands)
-			{
-				// Command 没有 toString 方法，需要使用 printCommand
-				printCommand(command);
-			}
-
-			printf("Press 'q' to quit\n\n");
-
-			// Start all threads
-			std::thread inklingThread(inklingDataThread, std::ref(inkling));
-			std::thread inklingTargetPositionThread(inklingTargetPositionDataThread, std::ref(commands));
-			std::thread motorPositionThread(motorPositionDataThread, std::ref(myPort));
-			std::thread motorThreadX(motorControlThreadX, std::ref(myPort));
-			std::thread motorThreadY(motorControlThreadY, std::ref(myPort));
-			// std::thread displayThread(displayDataThread);
-
-			// Main loop
-			while (true)
-			{
-				printf("\nPress 'q' to quit: ");
-				std::string input;
-				std::getline(std::cin, input);
-
-				if (input == "q" || input == "Q")
+				// Initialize Wacom Inkling
+				WacomInkling inkling;
+				printf("Attempting to Initialize Wacom Inkling device...\n");
+				if (!inkling.initialize())
 				{
-					inklingRunning = false; // Signal all threads to stop
-					break;
+					printf("Failed to reset Wacom Inkling: %s\n", inkling.getLastError().c_str());
+					printf("Please check:\n");
+					printf("1. Device is properly connected via USB\n");
+					printf("2. USB permissions are correctly set\n");
+					printf("3. No other application is using the device\n");
+					printf("4. Try unplugging and replugging the device\n");
+					return -1;
 				}
+
+				printf("Wacom Inkling reset successfully\n");
+				printf("Starting data acquisition...\n");
+				inkling.start();
+				printf("Data acquisition started\n");
+				printf("Device is ready to track position\n");
+
+				// 读取json文件
+
+				std::string jsonFilePath = "./Test-Cactus-Pattern.json";
+				Json2Route json2Route; // 先创建对象
+				if (!json2Route.loadFromFile(jsonFilePath))
+				{ // 然后加载文件
+					printf("Failed to load json file\n");
+					return -1;
+				}
+
+				std::vector<Command> commands = json2Route.getAllCommands();
+
+				for (const auto &command : commands)
+				{
+					// Command 没有 toString 方法，需要使用 printCommand
+					printCommand(command);
+				}
+
+				printf("Press 'q' to quit\n\n");
+
+				// Start all threads
+				std::thread inklingThread(inklingDataThread, std::ref(inkling));
+				std::thread inklingTargetPositionThread(inklingTargetPositionDataThread, std::ref(commands));
+				std::thread motorPositionThread(motorPositionDataThread, std::ref(myPort));
+				std::thread motorThreadX(motorControlThreadX, std::ref(myPort));
+				std::thread motorThreadY(motorControlThreadY, std::ref(myPort));
+				// std::thread displayThread(displayDataThread);
+
+				// Main loop
+				while (true)
+				{
+					printf("\nPress 'q' to quit: ");
+					std::string input;
+					std::getline(std::cin, input);
+
+					if (input == "q" || input == "Q")
+					{
+						inklingRunning = false; // Signal all threads to stop
+						break;
+					}
+				}
+
+				// Cleanup
+				printf("\nCleaning up...\n");
+				inklingThread.join();
+				inklingTargetPositionThread.join();
+				motorPositionThread.join();
+				motorThreadX.join();
+				motorThreadY.join();
+				// displayThread.join();
+				inkling.stop();
+				inkling.release(); // Release USB device before exiting
+				printf("Cleanup completed\n");
+
+				//////////////////////////////////////////////////////////////////////////////////////////////
+				// After moves have completed Disable node, and close ports
+				//////////////////////////////////////////////////////////////////////////////////////////////
+				printf("Disabling nodes, and closing port\n");
+				// Disable Nodes
+
+				// for (size_t iNode = 0; iNode < myPort.NodeCount(); iNode++) {
+				// 	// Create a shortcut reference for a node
+				// 	myPort.Nodes(iNode).EnableReq(false);
+				// }
 			}
 
-			// Cleanup
-			printf("\nCleaning up...\n");
-			inklingThread.join();
-			inklingTargetPositionThread.join();
-			motorPositionThread.join();
-			motorThreadX.join();
-			motorThreadY.join();
-			// displayThread.join();
-			inkling.stop();
-			inkling.release(); // Release USB device before exiting
-			printf("Cleanup completed\n");
+			catch (mnErr &theErr)
+			{
+				printf("Failed to disable Nodes n\n");
+				// This statement will print the address of the error, the error code (defined by the mnErr class),
+				// as well as the corresponding error message.Inkling Position: X=1, Y=70, Pressed=0
+				printf("Caught error: addr=%d, err=0x%08x\nmsg=%s\n", theErr.TheAddr, theErr.ErrorCode, theErr.ErrorMsg);
 
-			//////////////////////////////////////////////////////////////////////////////////////////////
-			// After moves have completed Disable node, and close ports
-			//////////////////////////////////////////////////////////////////////////////////////////////
-			printf("Disabling nodes, and closing port\n");
-			// Disable Nodes
+				msgUser("Press any key to continue."); // pause so the user can see the error message; waits for user to press a key
+				return 0;							   // This terminates the main program
+			}
 
-			// for (size_t iNode = 0; iNode < myPort.NodeCount(); iNode++) {
-			// 	// Create a shortcut reference for a node
-			// 	myPort.Nodes(iNode).EnableReq(false);
-			// }
+			// Close down the ports
+			myMgr->PortsClose();
+
+			msgUser("Press any key to continue."); // pause so the user can see the error message; waits for user to press a key
+			return 0;							   // End program
 		}
-	}
-	catch (mnErr &theErr)
-	{
-		printf("Failed to disable Nodes n\n");
-		// This statement will print the address of the error, the error code (defined by the mnErr class),
-		// as well as the corresponding error message.Inkling Position: X=1, Y=70, Pressed=0
-		printf("Caught error: addr=%d, err=0x%08x\nmsg=%s\n", theErr.TheAddr, theErr.ErrorCode, theErr.ErrorMsg);
-
-		msgUser("Press any key to continue."); // pause so the user can see the error message; waits for user to press a key
-		return 0;							   // This terminates the main program
-	}
-
-	// Close down the ports
-	myMgr->PortsClose();
-
-	msgUser("Press any key to continue."); // pause so the user can see the error message; waits for user to press a key
-	return 0;							   // End program
-}
