@@ -245,13 +245,10 @@ void motorPositionDataThread(IPort &myPort)
 	}
 }
 
-void inklingTargetPositionDataThread(std::vector<Command> commands)
-{
-	/**
-	 * 备用实现：使用索引跟踪命令执行进度
-	 * 增加了更详细的状态处理和错误检查
-	 */
-	const int TIMEOUT_SECONDS = 5;  // 添加超时设置
+void inklingTargetPositionDataThread(std::vector<Command> commands) {
+	const int TIMEOUT_SECONDS = 1;
+	std::condition_variable cv;
+	std::mutex mtx;
 
 	for (size_t i = 0; i < commands.size() && inklingRunning; i++) {
 		const auto &command = commands[i];
@@ -261,59 +258,26 @@ void inklingTargetPositionDataThread(std::vector<Command> commands)
 		targetYposition.store(command.y);
 		std::cout << "Target position set to: (" << command.x << ", " << command.y << ")" << std::endl;
 
-		// 状态控制和等待
-		std::unique_lock<std::mutex> lock(inklingStateMutx);
-		bool stateReached = false;
-
-		switch (command.type) {
-			case Command::Type::PEN_UP:
-				std::cout << "Waiting for pen up..." << std::endl;
-				stateReached = inklingStateCV.wait_for(lock, 
-					std::chrono::seconds(TIMEOUT_SECONDS),
-					[&]() {
-						bool state = !latestInklingState.load().pressed;
-						std::cout << "Current state: " << (state ? "UP" : "DOWN") << std::endl;
-						return state;
-					});
-				break;
-
-			case Command::Type::PEN_DOWN:
-			case Command::Type::MOVE:
-				std::cout << "Waiting for pen down..." << std::endl;
-				stateReached = inklingStateCV.wait_for(lock, 
-					std::chrono::seconds(TIMEOUT_SECONDS),
-					[&]() {
-						bool state = latestInklingState.load().pressed;
-						std::cout << "Current state: " << (state ? "DOWN" : "UP") << std::endl;
-						return state;
-					});
-				break;
-		}
-
-		if (!stateReached) {
-			std::cout << "Timeout waiting for pen state change!" << std::endl;
-			continue;  // 或者根据需求处理超时情况
-		}
-
-		// 等待位置到达（可选）
-		const int positionTolerance = 10;
-		bool positionReached = inklingStateCV.wait_for(lock,
+		// 等待笔被按下
+		std::unique_lock<std::mutex> lock(mtx);
+		bool stateReached = cv.wait_for(lock, 
 			std::chrono::seconds(TIMEOUT_SECONDS),
 			[&]() {
-				int currentX = currentXPosition.load();
-				int currentY = currentYPosition.load();
-				return std::abs(currentX - command.x) < positionTolerance &&
-					   std::abs(currentY - command.y) < positionTolerance;
+				bool isPressedNow = latestInklingState.load().pressed;
+				std::cout << "Current state: " << (isPressedNow ? "PRESSED" : "NOT PRESSED") << std::endl;
+				return isPressedNow;  // 只要笔被按下就继续执行
 			});
 
-		std::this_thread::sleep_for(std::chrono::seconds(2));
+		if (!stateReached) {
+			std::cout << "Timeout waiting for pen press!" << std::endl;
+		}
+
+		// 无论超时与否，等待1秒后继续下一个命令
+		//std::this_thread::sleep_for(std::chrono::seconds(1));
 		
-		std::cout << "Command " << i + 1 << "/" << commands.size()
-				  << (positionReached ? " completed" : " partially completed") 
-				  << std::endl;
+		std::cout << "Command " << i + 1 << "/" << commands.size() << " processed" << std::endl;
 	}
 
-	// 所有命令执行完毕
 	inklingRunning = false;
 	std::cout << "All commands processed" << std::endl;
 }
