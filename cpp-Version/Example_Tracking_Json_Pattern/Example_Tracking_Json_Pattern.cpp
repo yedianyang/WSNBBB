@@ -105,12 +105,12 @@ void displayDataThread() {
 			   latestInklingState.load().pressed);
 		printf("├─────────────────────────────────────────────┤\n");
 		printf("│ Motor Status:                               │\n");
-		printf("│   Current X Position: %-2d                  │\n", currentXPosition.load());
-		printf("│   Current Y Position: %-2d                  │\n", currentYPosition.load());
-		printf("│   Error X Position: %-2d                  │\n", errorXposition.load());
-		printf("│   Error Y Position: %-2d                  │\n", errorYposition.load());
-		printf("│   Target X Position: %-2d                  │\n", 00000);
-		printf("│   Target Y Position: %-2d                  │\n", 00000); //(latestInklingState.load().y - targetYposition.load() ) * 58/9 + currentXPosition.load());
+		printf("│   Current X Position: %-2d cnt                │\n", currentXPosition.load());
+		printf("│   Current Y Position: %-2d cnt                │\n", currentYPosition.load());
+		printf("│   Error X Position: %-2d cnt              │\n", errorXposition.load());
+		printf("│   Error Y Position: %-2d cnt              │\n", errorYposition.load());
+		printf("│   Target X Position: %-2d mm             │\n", targetXposition.load());
+		printf("│   Target Y Position: %-2d mm             │\n", targetYposition.load()); //(latestInklingState.load().y - targetYposition.load() ) * 58/9 + currentXPosition.load());
 		printf("├─────────────────────────────────────────────┤\n");
 		printf("│ Performance Metrics:                        │\n");
 		printf("│   Inkling Loop Time: %-6lld us             │\n", latestInklingState.load().loopTime);
@@ -142,7 +142,7 @@ void motorControlThreadX(IPort& myPort) {
 		
 		int currentInklingX = latestInklingState.load().x;
 		int curMotorXPosition = currentXPosition.load();
-		int tarXPosition = targetXposition.load();
+		int tarXPosition = targetXposition.load() * 1920/193;
 
 		int motorGoToPositionX = (currentInklingX - tarXPosition) * 386/45 + curMotorXPosition;
 
@@ -182,7 +182,7 @@ void motorControlThreadY(IPort& myPort) {
 
 		int currentInklingY = latestInklingState.load().y;
 		int curMotorYPosition = currentYPosition.load();
-		int tarYPosition = targetYposition.load();
+		int tarYPosition = targetYposition.load() * 1920/145;
 
 		int motorGoToPositionY = (currentInklingY - tarYPosition) * 58/9 + curMotorYPosition;
 
@@ -232,7 +232,7 @@ void motorPositionDataThread(IPort& myPort) {
 }
 
 
-void inklingTargetPositionDataThread() {
+void inklingTargetPositionDataThread(std::vector<Command> commands) {
 	/**
 	 * 更新目标位置
 	 * 
@@ -240,11 +240,37 @@ void inklingTargetPositionDataThread() {
 	 * 
 	 */
 
-	int tarXPosition = 960;
-	int tarYPosition = 960; 
 
-	targetXposition.store(tarXPosition);
-	targetYposition.store(tarYPosition);
+	while (inklingRunning)
+	{
+		std::condition_variable cv;
+		std::mutex mtx;
+		for(const auto& command : commands){
+			if(command == commands.back()) inklingRunning = false;
+			int tarXPosition = command.x; // in mm
+			int tarYPosition = command.y; // in mm
+			CommandType tarType = command.type;
+
+			targetXposition.store(tarXPosition); // * 1920/193); //in resolution
+			targetYposition.store(tarYPosition); // * 1920/145); //in resolution
+
+			// Wait for appropriate pen state before continuing
+			std::unique_lock<std::mutex> lock(mtx);
+			if (tarType == CommandType::Pen_Up) {
+				// For Pen_Up, wait until pen is NOT pressed
+				cv.wait(lock, [&]() {
+					return !latestInklingState.load().pressed;
+				});
+			
+			// For Pen_Down and Move, wait until pen IS pressed
+			cv.wait(lock, [&]() {
+				return latestInklingState.load().pressed;
+			});
+		}
+
+		std::this_thread::sleep_for(std::chrono::seconds(1));
+		}
+	}
 }
 
 int main(int argc, char *argv[])
@@ -409,11 +435,28 @@ int main(int argc, char *argv[])
 			inkling.start();
 			printf("Data acquisition started\n");
 			printf("Device is ready to track position\n");
+
+
+			// 读取json文件
+
+			std::string jsonFilePath = "./Test-Cactus-Pattern.json";
+			std::vector<Command> commands = {};
+			if(!Json2Route json2Route(jsonFilePath)){
+				printf("Failed to load json file\n");
+			}else{
+				commands = json2Route.getAllCommands();
+				for(const auto& command : commands){
+					printf("Command: %s\n", command.toString().c_str());
+				}
+			}
+
+			// 打印所有命令
+
 			printf("Press 'q' to quit\n\n");
 
 			// Start all threads
 			std::thread inklingThread(inklingDataThread, std::ref(inkling));
-			std::thread inklingTargetPositionThread(inklingTargetPositionDataThread);
+			std::thread inklingTargetPositionThread(inklingTargetPositionDataThread, std::ref(commands));
 			std::thread motorPositionThread(motorPositionDataThread, std::ref(myPort));
 			std::thread motorThreadX(motorControlThreadX, std::ref(myPort));
 			std::thread motorThreadY(motorControlThreadY, std::ref(myPort));
