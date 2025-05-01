@@ -235,43 +235,104 @@ void motorPositionDataThread(IPort& myPort) {
 void inklingTargetPositionDataThread(std::vector<Command> commands) {
 	/**
 	 * 更新目标位置
-	 * 
-	 * 该函数用于更新目标位置，并计算目标位置与当前位置的误差
-	 * 
+	 * 该函数用于更新目标位置，并根据笔的状态控制执行流程
 	 */
+	std::condition_variable cv;
+	std::mutex mtx;
 
+	for(const auto& command : commands) {
+		if(&command == &commands.back()) {
+			inklingRunning = false;
+		}
 
-	while (inklingRunning)
-	{
-		std::condition_variable cv;
-		std::mutex mtx;
-		for(const auto& command : commands){
-			if(command == commands.back()) inklingRunning = false;
-			int tarXPosition = command.x; // in mm
-			int tarYPosition = command.y; // in mm
-			Command::Type tarType = command.type;
+		int tarXPosition = command.x;
+		int tarYPosition = command.y;
+		Command::Type tarType = command.type;
 
-			targetXposition.store(tarXPosition); // * 1920/193); //in resolution
-			targetYposition.store(tarYPosition); // * 1920/145); //in resolution
+		targetXposition.store(tarXPosition);
+		targetYposition.store(tarYPosition);
 
-			// Wait for appropriate pen state before continuing
-			std::unique_lock<std::mutex> lock(mtx);
-			if (tarType == Command::Type::PEN_UP) {
-				// For Pen_Up, wait until pen is NOT pressed
-				cv.wait(lock, [&]() {
-					return !latestInklingState.load().pressed;
-				});
-			
-			// For Pen_Down and Move, wait until pen IS pressed
+		// Wait for appropriate pen state
+		std::unique_lock<std::mutex> lock(mtx);
+		if (tarType == Command::Type::PEN_UP) {
+			// For PEN_UP, wait until pen is NOT pressed
+			cv.wait(lock, [&]() {
+				return !latestInklingState.load().pressed;
+			});
+		} else {
+			// For PEN_DOWN and MOVE, wait until pen IS pressed
 			cv.wait(lock, [&]() {
 				return latestInklingState.load().pressed;
 			});
 		}
 
-		std::this_thread::sleep_for(std::chrono::seconds(1));
-		}
+    std::this_thread::sleep_for(std::chrono::seconds(1));
 	}
 }
+
+void inklingTargetPositionDataThread_backup(std::vector<Command> commands) {
+    /**
+     * 备用实现：使用索引跟踪命令执行进度
+     * 增加了更详细的状态处理和错误检查
+     */
+    std::condition_variable cv;
+    std::mutex mtx;
+    
+    for(size_t i = 0; i < commands.size(); i++) {
+        const auto& command = commands[i];
+        
+        // 检查是否是最后一个命令
+        if(i == commands.size() - 1) {
+            inklingRunning = false;
+        }
+
+        int tarXPosition = command.x;
+        int tarYPosition = command.y;
+        Command::Type tarType = command.type;
+
+        // 更新目标位置
+        targetXposition.store(tarXPosition);
+        targetYposition.store(tarYPosition);
+
+        // 状态控制和等待
+        std::unique_lock<std::mutex> lock(mtx);
+        switch(tarType) {
+            case Command::Type::PEN_UP:
+                // 等待笔抬起
+                cv.wait(lock, [&]() {
+                    return !latestInklingState.load().pressed;
+                });
+                break;
+                
+            case Command::Type::PEN_DOWN:
+                // 等待笔压下
+                cv.wait(lock, [&]() {
+                    return latestInklingState.load().pressed;
+                });
+                break;
+                
+            case Command::Type::MOVE:
+                // 确保笔保持压下状态
+                cv.wait(lock, [&]() {
+                    return latestInklingState.load().pressed;
+                });
+                break;
+        }
+
+        // 可以添加位置到达检查
+        // cv.wait(lock, [&]() {
+        //     return std::abs(currentXPosition.load() - tarXPosition) < tolerance &&
+        //            std::abs(currentYPosition.load() - tarYPosition) < tolerance;
+        // });
+
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+        
+        // 可以添加进度报告
+        std::cout << "Command " << i + 1 << "/" << commands.size() 
+                  << " completed" << std::endl;
+    }
+}
+
 
 int main(int argc, char *argv[])
 {
