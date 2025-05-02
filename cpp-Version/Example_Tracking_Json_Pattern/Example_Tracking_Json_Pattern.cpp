@@ -174,6 +174,9 @@ void motorControlThreadX(IPort &myPort)
 
 		motorXLoopTime.store(duration.count());
 	}
+
+	std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+	moveMotor(myPort.Nodes(0), 23000);
 }
 
 void motorControlThreadY(IPort &myPort)
@@ -217,6 +220,9 @@ void motorControlThreadY(IPort &myPort)
 
 		motorYLoopTime.store(duration.count());
 	}
+
+	std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+	moveMotor(myPort.Nodes(1), 23000);
 }
 
 void motorPositionDataThread(IPort &myPort)
@@ -246,40 +252,34 @@ void motorPositionDataThread(IPort &myPort)
 }
 
 void inklingTargetPositionDataThread(std::vector<Command> commands) {
-	const int TIMEOUT_SECONDS = 1;
-	std::condition_variable cv;
-	std::mutex mtx;
+	/**
+	 * 备用实现：使用索引跟踪命令执行进度
+	 * 增加了更详细的状态处理和错误检查
+	 */
+	
+    for (size_t i = 0; i < commands.size() && inklingRunning; i++) {
+        const auto &command = commands[i];
+        
+        // 更新目标位置
+        targetXposition.store(command.x);
+        targetYposition.store(command.y);
+        std::cout << "Target position set to: (" << command.x << ", " << command.y << ")" << std::endl;
 
-	for (size_t i = 0; i < commands.size() && inklingRunning; i++) {
-		const auto &command = commands[i];
-		
-		// 更新目标位置
-		targetXposition.store(command.x);
-		targetYposition.store(command.y);
-		std::cout << "Target position set to: (" << command.x << ", " << command.y << ")" << std::endl;
+        // 检查笔的状态
+        if (latestInklingState.load().pressed) {
+            // 如果笔被按下，等待1秒后继续下一个命令
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            std::cout << "Command " << i + 1 << "/" << commands.size() << " processed" << std::endl;
+        } else {
+            // 如果笔没有被按下，等待一小段时间后重新检查
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+            i--;  // 重试当前命令
+        }
+    }
 
-		// 等待笔被按下
-		std::unique_lock<std::mutex> lock(mtx);
-		bool stateReached = cv.wait_for(lock, 
-			std::chrono::seconds(TIMEOUT_SECONDS),
-			[&]() {
-				bool isPressedNow = latestInklingState.load().pressed;
-				std::cout << "Current state: " << (isPressedNow ? "PRESSED" : "NOT PRESSED") << std::endl;
-				return isPressedNow;  // 只要笔被按下就继续执行
-			});
-
-		if (!stateReached) {
-			std::cout << "Timeout waiting for pen press!" << std::endl;
-		}
-
-		// 无论超时与否，等待1秒后继续下一个命令
-		//std::this_thread::sleep_for(std::chrono::seconds(1));
-		
-		std::cout << "Command " << i + 1 << "/" << commands.size() << " processed" << std::endl;
-	}
-
+    
+    std::cout << "All commands processed" << std::endl;
 	inklingRunning = false;
-	std::cout << "All commands processed" << std::endl;
 }
 
 int main(int argc, char *argv[])
@@ -422,6 +422,9 @@ int main(int argc, char *argv[])
 				}
 			}
 
+			moveMotor(myPort.Nodes(0), 23000);
+			moveMotor(myPort.Nodes(1), 23000);
+
 			///////////////////////////////////////////////////////////////////////////////////////
 			// At this point we will execute moves based on user input
 			//////////////////////////////////////////////////////////////////////////////////////
@@ -458,6 +461,7 @@ int main(int argc, char *argv[])
 
 			std::vector<Command> commands = json2Route.getAllCommands();
 
+
 			for (const auto &command : commands)
 			{
 				// Command 没有 toString 方法，需要使用 printCommand
@@ -486,6 +490,10 @@ int main(int argc, char *argv[])
 					inklingRunning = false; // Signal all threads to stop
 					break;
 				}
+
+				if(inklingRunning == false) {
+					break;
+				}
 			}
 
 			// Cleanup
@@ -506,10 +514,10 @@ int main(int argc, char *argv[])
 			printf("Disabling nodes, and closing port\n");
 			// Disable Nodes
 
-			// for (size_t iNode = 0; iNode < myPort.NodeCount(); iNode++) {
-			// 	// Create a shortcut reference for a node
-			// 	myPort.Nodes(iNode).EnableReq(false);
-			// }
+			for (size_t iNode = 0; iNode < myPort.NodeCount(); iNode++) {
+				// Create a shortcut reference for a node
+				myPort.Nodes(iNode).EnableReq(false);
+			}
 		}
 	}
 	catch (mnErr &theErr)
