@@ -255,7 +255,7 @@ void motorPositionDataThread(IPort &myPort)
 	}
 }
 
-void inklingTargetPositionDataThread(DynamicAdvancer& advancer) {
+void inklingTargetPositionDataThread(DynamicAdvancer::AdvancePoint &point) {
 	//可靠版本
 	//     for (size_t i = 0; i < commands.size() && inklingRunning; i++) {
     //     const auto &command = commands[i];
@@ -512,7 +512,7 @@ int main(int argc, char *argv[])
 
 			// Start all threads
 			std::thread inklingThread(inklingDataThread, std::ref(inkling));
-			std::thread inklingTargetPositionThread(inklingTargetPositionDataThread, std::ref(advancer));
+			std::thread inklingTargetPositionThread(inklingTargetPositionDataThread, DynamicAdvancer::AdvancePoint(point));
 			std::thread motorPositionThread(motorPositionDataThread, std::ref(myPort));
 			std::thread motorThreadX(motorControlThreadX, std::ref(myPort));
 			std::thread motorThreadY(motorControlThreadY, std::ref(myPort));
