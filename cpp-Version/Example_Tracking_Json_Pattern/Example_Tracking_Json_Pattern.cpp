@@ -86,8 +86,8 @@ void inklingDataThread(WacomInkling &inkling)
 	// 尝试加载已保存的配置
 	if (!kalman.loadConfig("kalman_config.json")) {
 		// 如果没有配置文件，设置默认参数
-		kalman.setProcessNoise(1e-3);      // 系统过程噪声
-		kalman.setMeasurementNoise(1e-1);  // 测量噪声
+		kalman.setProcessNoise(0.02);      // 系统过程噪声
+		kalman.setMeasurementNoise(0.02);  // 测量噪声
 	}
 	
 	while (inklingRunning)
