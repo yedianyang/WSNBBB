@@ -255,7 +255,7 @@ void motorPositionDataThread(IPort &myPort)
 	}
 }
 
-void inklingTargetPositionDataThread(DynamicAdvancer::AdvancePoint &point) {
+void inklingTargetPositionDataThread(Command &command) {
 	//可靠版本
 	//     for (size_t i = 0; i < commands.size() && inklingRunning; i++) {
     //     const auto &command = commands[i];
@@ -507,6 +507,8 @@ int main(int argc, char *argv[])
 			// 在主函数中初始化
 			DynamicAdvancer advancer(commands, 0.5, 10);  // 0.5mm距离阈值，50ms时间间隔
 			DynamicAdvancer::AdvancePoint point;
+
+
 
 			printf("Press 'q' to quit\n\n");
 
