@@ -86,7 +86,7 @@ private:
     // 路径插值（简化版，可以根据需要扩展）
     std::vector<Command> interpolate_path(const std::vector<Command>& input) {
         std::vector<Command> result;
-        const float step = 0.2;  // 0.2mm间距
+        const float step = distance_threshold_;  // 使用构造函数传入的距离阈值
         
         for (size_t i = 0; i < input.size() - 1; i++) {
             const auto& p1 = input[i];
@@ -109,6 +109,11 @@ private:
                 cmd.type = p1.type;  // 保持类型不变
                 result.push_back(cmd);
             }
+        }
+        
+        // 确保添加最后一个点
+        if (!input.empty()) {
+            result.push_back(input.back());
         }
         
         return result;
