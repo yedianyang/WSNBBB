@@ -255,7 +255,7 @@ void motorPositionDataThread(IPort &myPort)
 	}
 }
 
-void inklingTargetPositionDataThread(Command &commands) {
+void inklingTargetPositionDataThread(std::vector<Command>& commands) {
 	//可靠版本
 	//     for (size_t i = 0; i < commands.size() && inklingRunning; i++) {
     //     const auto &command = commands[i];
