@@ -80,15 +80,15 @@ void moveMotor(INode &theNode, int position)
 
 void inklingDataThread(WacomInkling &inkling)
 {
-	// 创建Kalman滤波器实例
-	KalmanFilter2D kalman(0.001);
+	// // 创建Kalman滤波器实例
+	// KalmanFilter2D kalman(0.001);
 	
-	// 尝试加载已保存的配置
-	if (!kalman.loadConfig("kalman_config.json")) {
-		// 如果没有配置文件，设置默认参数
-		kalman.setProcessNoise(0.02);      // 系统过程噪声
-		kalman.setMeasurementNoise(0.02);  // 测量噪声
-	}
+	// // 尝试加载已保存的配置
+	// if (!kalman.loadConfig("kalman_config.json")) {
+	// 	// 如果没有配置文件，设置默认参数
+	// 	kalman.setProcessNoise(0.02);      // 系统过程噪声
+	// 	kalman.setMeasurementNoise(0.02);  // 测量噪声
+	// }
 	
 	while (inklingRunning)
 	{
@@ -98,20 +98,25 @@ void inklingDataThread(WacomInkling &inkling)
 		if (inkling.getData(data))
 		{
 			// 将原始数据传入Kalman滤波器
-			std::array<double, 2> measured_pos = {static_cast<double>(data.x), 
-													static_cast<double>(data.y)};
+			// std::array<double, 2> measured_pos = {static_cast<double>(data.x), 
+			// 										static_cast<double>(data.y)};
 			
-			// 执行Kalman滤波，获取滤波后的完整状态
-			std::array<double, 6> filtered_state = kalman.step(measured_pos);
+			// // 执行Kalman滤波，获取滤波后的完整状态
+			// std::array<double, 6> filtered_state = kalman.step(measured_pos);
 			
-			// 存储滤波后的数据
-			// filtered_state[0]和[1]是滤波后的位置
-			// filtered_state[2]和[3]是估计的速度
-			// filtered_state[4]和[5]是估计的加速度
+			// // 存储滤波后的数据
+			// // filtered_state[0]和[1]是滤波后的位置
+			// // filtered_state[2]和[3]是估计的速度
+			// // filtered_state[4]和[5]是估计的加速度
+			// latestInklingState.store(InklingState{
+			// 	static_cast<int>(filtered_state[0]),  // 滤波后的x
+			// 	static_cast<int>(filtered_state[1]),  // 滤波后的y
+			// 	data.pressed,  // 压力状态保持不变
+
 			latestInklingState.store(InklingState{
-				static_cast<int>(filtered_state[0]),  // 滤波后的x
-				static_cast<int>(filtered_state[1]),  // 滤波后的y
-				data.pressed,  // 压力状态保持不变
+				adaptiveLowPassFilter(latestInklingState.load().x, data.x, 0.5f),
+				adaptiveLowPassFilter(latestInklingState.load().y, data.y, 0.5f),
+				data.pressed,
 				std::chrono::duration_cast<std::chrono::microseconds>(
 					std::chrono::high_resolution_clock::now() - loop_start
 				).count()
