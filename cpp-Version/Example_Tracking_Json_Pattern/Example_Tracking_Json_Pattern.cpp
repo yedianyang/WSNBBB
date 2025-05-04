@@ -157,7 +157,7 @@ void motorControlThreadX(IPort &myPort)
 
 		motorGoToPositionX = (currentInklingX - tarXPosition) * 386 / 45 + curMotorXPosition;
 
-		motorGoToPositionX = adaptiveLowPassFilter(curMotorXPosition, motorGoToPositionX, 0.5f);
+		motorGoToPositionX = adaptiveLowPassFilter(curMotorXPosition, motorGoToPositionX, 0.7f);
 
 		if (motorGoToPositionX >= 0 && motorGoToPositionX <= 46000)
 		{
@@ -202,7 +202,7 @@ void motorControlThreadY(IPort &myPort)
 
 		motorGoToPositionY = (currentInklingY - tarYPosition) * 58 / 9 + curMotorYPosition;
 
-		motorGoToPositionY = adaptiveLowPassFilter(curMotorYPosition, motorGoToPositionY, 0.5f); // Filter change to Kalman later
+		motorGoToPositionY = adaptiveLowPassFilter(curMotorYPosition, motorGoToPositionY, 0.7f); // Filter change to Kalman later
 
 		// printf("motorGoToPositionY: %d\n", motorGoToPositionY);
 
