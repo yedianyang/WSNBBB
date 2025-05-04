@@ -126,7 +126,7 @@ void inklingDataThread(WacomInkling &inkling)
 	}
 
 	// 在线程结束时保存配置
-	kalman.saveConfig("kalman_config.json");
+	// kalman.saveConfig("kalman_config.json");
 }
 
 void displayDataThread()
