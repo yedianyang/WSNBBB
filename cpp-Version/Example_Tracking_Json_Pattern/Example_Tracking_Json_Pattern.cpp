@@ -276,6 +276,9 @@ void inklingTargetPositionDataThread(Command &command) {
     //         i--;  // 重试当前命令
     //     }
     // }
+
+	DynamicAdvancer advancer(commands, 0.5, 10);
+	DynamicAdvancer::AdvancePoint point;
 	
 	// 移动到初始位置
 	targetXposition.store(23000);
