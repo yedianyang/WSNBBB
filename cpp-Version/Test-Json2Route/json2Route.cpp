@@ -68,8 +68,8 @@ bool Json2Route::parseJson(const json& j) {
             const auto& canvas = (*canvasSizeIt)[0];
             if (canvas.find("width") != canvas.end() && 
                 canvas.find("height") != canvas.end()) {
-                canvasWidth_ = canvas["width"];
-                canvasHeight_ = canvas["height"];
+            canvasWidth_ = canvas["width"];
+            canvasHeight_ = canvas["height"];
             }
         }
 
@@ -85,14 +85,14 @@ bool Json2Route::parseJson(const json& j) {
                 Path path(pathJson["id"], pathJson["style"]);
                 
                 if (pathJson.find("commands") != pathJson.end()) {
-                    for (const auto& cmdJson : pathJson["commands"]) {
-                        Command::Type type;
+                for (const auto& cmdJson : pathJson["commands"]) {
+                    Command::Type type;
                         const std::string& cmdType = cmdJson["type"];
-                        
-                        if (cmdType == "pen_down") type = Command::Type::PEN_DOWN;
-                        else if (cmdType == "move") type = Command::Type::MOVE;
-                        else if (cmdType == "pen_up") type = Command::Type::PEN_UP;
-                        else continue;
+                    
+                    if (cmdType == "pen_down") type = Command::Type::PEN_DOWN;
+                    else if (cmdType == "move") type = Command::Type::MOVE;
+                    else if (cmdType == "pen_up") type = Command::Type::PEN_UP;
+                    else continue;
 
                         const double x = cmdJson["x"];
                         const double y = cmdJson["y"];
