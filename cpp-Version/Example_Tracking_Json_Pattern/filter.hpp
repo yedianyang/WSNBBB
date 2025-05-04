@@ -24,6 +24,6 @@ private:
     double acceleration_pred[2];  // [ax, ay]
 };
 
-// 保留原有的低通滤波函数
-float lowPassFilter(float prev, float curr, float alpha);
-float adaptiveLowPassFilter(float prev, float curr, float alpha);
+// 声明低通滤波函数
+int lowPassFilter(int currentValue, int newValue, float alpha);
+int adaptiveLowPassFilter(int currentValue, int newValue, float baseAlpha);
