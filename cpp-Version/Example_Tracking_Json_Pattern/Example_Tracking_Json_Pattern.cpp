@@ -80,8 +80,15 @@ void moveMotor(INode &theNode, int position)
 
 void inklingDataThread(WacomInkling &inkling)
 {
-	// 创建Kalman滤波器实例，采样周期设为1ms (0.001s)
+	// 创建Kalman滤波器实例
 	KalmanFilter2D kalman(0.001);
+	
+	// 尝试加载已保存的配置
+	if (!kalman.loadConfig("kalman_config.json")) {
+		// 如果没有配置文件，设置默认参数
+		kalman.setProcessNoise(1e-3);      // 系统过程噪声
+		kalman.setMeasurementNoise(1e-1);  // 测量噪声
+	}
 	
 	while (inklingRunning)
 	{
@@ -112,6 +119,9 @@ void inklingDataThread(WacomInkling &inkling)
 		}
 		std::this_thread::sleep_for(std::chrono::milliseconds(1));
 	}
+
+	// 在线程结束时保存配置
+	kalman.saveConfig("kalman_config.json");
 }
 
 void displayDataThread()

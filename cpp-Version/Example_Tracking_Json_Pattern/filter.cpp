@@ -2,6 +2,8 @@
 #include <cmath>
 #include <algorithm>
 #include <cstring>
+#include <nlohmann/json.hpp>
+using json = nlohmann::json;
 
 // 低通滤波器实现
 int lowPassFilter(int currentValue, int newValue, float alpha) {
@@ -85,5 +87,53 @@ std::array<double, 6> KalmanFilter2D::step(const std::array<double, 2>& measured
         acceleration_pred[X],  // X方向加速度
         acceleration_pred[Y]   // Y方向加速度
     };
+}
+
+bool KalmanFilter2D::saveConfig(const std::string& filename) const {
+    try {
+        json config;
+        config["sampling_time"] = dt;
+        config["process_noise"] = process_noise;
+        config["measurement_noise"] = measurement_noise;
+        
+        // 保存协方差矩阵
+        json covariance_json;
+        for(int i = 0; i < 6; i++) {
+            for(int j = 0; j < 6; j++) {
+                covariance_json.push_back(covariance[i][j]);
+            }
+        }
+        config["covariance"] = covariance_json;
+
+        // 写入文件
+        std::ofstream file(filename);
+        file << config.dump(4);
+        return true;
+    } catch(...) {
+        return false;
+    }
+}
+
+bool KalmanFilter2D::loadConfig(const std::string& filename) {
+    try {
+        std::ifstream file(filename);
+        json config = json::parse(file);
+        
+        dt = config["sampling_time"];
+        process_noise = config["process_noise"];
+        measurement_noise = config["measurement_noise"];
+        
+        // 加载协方差矩阵
+        auto covariance_json = config["covariance"];
+        int idx = 0;
+        for(int i = 0; i < 6; i++) {
+            for(int j = 0; j < 6; j++) {
+                covariance[i][j] = covariance_json[idx++];
+            }
+        }
+        return true;
+    } catch(...) {
+        return false;
+    }
 }
 
