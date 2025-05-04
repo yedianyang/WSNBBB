@@ -13,6 +13,7 @@
 #include "./WacomInkling.hpp" // Add WacomInkling header
 #include "./filter.hpp"
 #include <cstdlib> // Add for system() call
+#include "./svg_dynamic_advancer.hpp"
 
 using namespace sFnd;
 
@@ -147,6 +148,7 @@ void motorControlThreadX(IPort &myPort)
 	 *
 	 * @param myPort 电机控制端口接口的引用
 	 */
+	int motorGoToPositionX = 23000;
 
 	while (inklingRunning)
 	{
@@ -157,11 +159,11 @@ void motorControlThreadX(IPort &myPort)
 		int curMotorXPosition = currentXPosition.load();
 		int tarXPosition = targetXposition.load() * 1920 / 193;
 
-		int motorGoToPositionX = (currentInklingX - tarXPosition) * 386 / 45 + curMotorXPosition;
+		motorGoToPositionX = (currentInklingX - tarXPosition) * 386 / 45 + curMotorXPosition;
 
 		motorGoToPositionX = adaptiveLowPassFilter(curMotorXPosition, motorGoToPositionX, 0.5f);
 
-		if (curMotorXPosition >= 0 && curMotorXPosition <= 46000)
+		if (motorGoToPositionX >= 0 && motorGoToPositionX <= 46000)
 		{
 			// if(motorPositionX >= 0 && motorPositionX <= 45000) {
 			moveMotor(myPort.Nodes(0), motorGoToPositionX);
@@ -192,6 +194,8 @@ void motorControlThreadY(IPort &myPort)
 	 *
 	 * @param myPort 电机控制端口接口的引用
 	 */
+	int motorGoToPositionY = 23000;
+
 	while (inklingRunning)
 	{
 		auto start_time = std::chrono::high_resolution_clock::now();
@@ -200,13 +204,13 @@ void motorControlThreadY(IPort &myPort)
 		int curMotorYPosition = currentYPosition.load();
 		int tarYPosition = targetYposition.load() * 1920 / 145;
 
-		int motorGoToPositionY = (currentInklingY - tarYPosition) * 58 / 9 + curMotorYPosition;
+		motorGoToPositionY = (currentInklingY - tarYPosition) * 58 / 9 + curMotorYPosition;
 
-		motorGoToPositionY = adaptiveLowPassFilter(curMotorYPosition, motorGoToPositionY, 0.5f);
+		motorGoToPositionY = adaptiveLowPassFilter(curMotorYPosition, motorGoToPositionY, 0.5f); //Filter change to Kalman later
 
 		// printf("motorGoToPositionY: %d\n", motorGoToPositionY);
 
-		if (curMotorYPosition >= 0 && curMotorYPosition <= 45000)
+		if (motorGoToPositionY >= 0 && motorGoToPositionY <= 45000)
 		{
 			// if(motorPositionY >= 0 && motorPositionY <= 45000) {
 			moveMotor(myPort.Nodes(1), motorGoToPositionY);
@@ -251,34 +255,68 @@ void motorPositionDataThread(IPort &myPort)
 	}
 }
 
-void inklingTargetPositionDataThread(std::vector<Command> commands) {
-	/**
-	 * 备用实现：使用索引跟踪命令执行进度
-	 * 增加了更详细的状态处理和错误检查
-	 */
-	
-    for (size_t i = 0; i < commands.size() && inklingRunning; i++) {
-        const auto &command = commands[i];
+void inklingTargetPositionDataThread(DynamicAdvancer& advancer) {
+	//可靠版本
+	//     for (size_t i = 0; i < commands.size() && inklingRunning; i++) {
+    //     const auto &command = commands[i];
         
-        // 更新目标位置
-        targetXposition.store(command.x);
-        targetYposition.store(command.y);
-        std::cout << "Target position set to: (" << command.x << ", " << command.y << ")" << std::endl;
+    //     // 更新目标位置
+    //     targetXposition.store(command.x);
+    //     targetYposition.store(command.y);
+    //     std::cout << "Target position set to: (" << command.x << ", " << command.y << ")" << std::endl;
 
-        // 检查笔的状态
-        if (latestInklingState.load().pressed) {
-            // 如果笔被按下，等待1秒后继续下一个命令
-            std::this_thread::sleep_for(std::chrono::milliseconds(100));
-            std::cout << "Command " << i + 1 << "/" << commands.size() << " processed" << std::endl;
-        } else {
-            // 如果笔没有被按下，等待一小段时间后重新检查
-            std::this_thread::sleep_for(std::chrono::seconds(1));
-            i--;  // 重试当前命令
-        }
-    }
+    //     // 检查笔的状态
+    //     if (latestInklingState.load().pressed) {
+    //         // 如果笔被按下，等待1秒后继续下一个命令
+    //         std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    //         std::cout << "Command " << i + 1 << "/" << commands.size() << " processed" << std::endl;
+    //     } else {
+    //         // 如果笔没有被按下，等待一小段时间后重新检查
+    //         std::this_thread::sleep_for(std::chrono::seconds(1));
+    //         i--;  // 重试当前命令
+    //     }
+    // }
+	
+	// 移动到初始位置
+	targetXposition.store(23000);
+	targetYposition.store(23000);
+	std::this_thread::sleep_for(std::chrono::seconds(2));  // 等待到达初始位置
 
-    
-    std::cout << "All commands processed" << std::endl;
+	while (inklingRunning) {
+		// 检查笔的状态
+		if (latestInklingState.load().pressed) {
+			// 获取下一个点
+			if (advancer.getNextPoint(point)) {
+				// 更新目标位置
+				targetXposition.store(point.x);
+				targetYposition.store(point.y);
+				
+				// 如果是拐角，增加额外延时
+				if (point.is_corner) {
+					std::this_thread::sleep_for(std::chrono::milliseconds(50));
+				}
+				
+				std::cout << "Target position set to: (" 
+						 << point.x << ", " << point.y 
+						 << ")" << (point.is_corner ? " [CORNER]" : "") 
+						 << std::endl;
+			} else {
+				// 检查是否已经结束
+				if (point.x == commands.back().x && 
+					point.y == commands.back().y) {
+					break;
+				}
+			}
+		}
+		//std::this_thread::sleep_for(std::chrono::milliseconds(10));
+	}
+
+	// 移动回初始位置
+	targetXposition.store(23000);
+	targetYposition.store(23000);
+	std::this_thread::sleep_for(std::chrono::seconds(2));
+
+	std::cout << "All commands processed" << std::endl;
 	inklingRunning = false;
 }
 
@@ -422,9 +460,6 @@ int main(int argc, char *argv[])
 				}
 			}
 
-			moveMotor(myPort.Nodes(0), 23000);
-			moveMotor(myPort.Nodes(1), 23000);
-
 			///////////////////////////////////////////////////////////////////////////////////////
 			// At this point we will execute moves based on user input
 			//////////////////////////////////////////////////////////////////////////////////////
@@ -451,7 +486,7 @@ int main(int argc, char *argv[])
 
 			// 读取json文件
 
-			std::string jsonFilePath = "./Test-Cactus-Pattern.json";
+			std::string jsonFilePath = "../Artpart/My-Favorite-Tune.json";
 			Json2Route json2Route; // 先创建对象
 			if (!json2Route.loadFromFile(jsonFilePath))
 			{ // 然后加载文件
@@ -468,15 +503,20 @@ int main(int argc, char *argv[])
 				printCommand(command);
 			}
 
+
+			// 在主函数中初始化
+			DynamicAdvancer advancer(commands, 0.5, 10);  // 0.5mm距离阈值，50ms时间间隔
+			DynamicAdvancer::AdvancePoint point;
+
 			printf("Press 'q' to quit\n\n");
 
 			// Start all threads
 			std::thread inklingThread(inklingDataThread, std::ref(inkling));
-			std::thread inklingTargetPositionThread(inklingTargetPositionDataThread, std::ref(commands));
+			std::thread inklingTargetPositionThread(inklingTargetPositionDataThread, std::ref(advancer));
 			std::thread motorPositionThread(motorPositionDataThread, std::ref(myPort));
 			std::thread motorThreadX(motorControlThreadX, std::ref(myPort));
 			std::thread motorThreadY(motorControlThreadY, std::ref(myPort));
-			// std::thread displayThread(displayDataThread);
+			std::thread displayThread(displayDataThread);
 
 			// Main loop
 			while (true)
@@ -503,7 +543,7 @@ int main(int argc, char *argv[])
 			motorPositionThread.join();
 			motorThreadX.join();
 			motorThreadY.join();
-			// displayThread.join();
+			displayThread.join();
 			inkling.stop();
 			inkling.release(); // Release USB device before exiting
 			printf("Cleanup completed\n");
