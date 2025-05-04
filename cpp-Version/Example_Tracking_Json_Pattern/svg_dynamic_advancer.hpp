@@ -103,10 +103,7 @@ private:
             // 插值
             for (int j = 0; j <= steps; j++) {
                 float t = static_cast<float>(j) / steps;
-                Command cmd;
-                cmd.x = p1.x + dx * t;
-                cmd.y = p1.y + dy * t;
-                cmd.type = p1.type;  // 保持类型不变
+                Command cmd(p1.type, p1.x + dx * t, p1.y + dy * t);
                 result.push_back(cmd);
             }
         }
