@@ -277,7 +277,7 @@ void inklingTargetPositionDataThread(Command &command) {
     //     }
     // }
 
-	DynamicAdvancer advancer(commands, 0.5, 10);
+	DynamicAdvancer advancer(command, 0.5, 10);
 	DynamicAdvancer::AdvancePoint point;
 	
 	// 移动到初始位置
