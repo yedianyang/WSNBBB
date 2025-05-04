@@ -85,35 +85,36 @@ private:
 
     // 路径插值（简化版，可以根据需要扩展）
     std::vector<Command> interpolate_path(const std::vector<Command>& input) {
-        std::vector<Command> result;
-        const float step = distance_threshold_;  // 使用构造函数传入的距离阈值
+        return input;
+        // std::vector<Command> result;
+        // const float step = distance_threshold_;  // 使用构造函数传入的距离阈值
         
-        for (size_t i = 0; i < input.size() - 1; i++) {
-            const auto& p1 = input[i];
-            const auto& p2 = input[i + 1];
+        // for (size_t i = 0; i < input.size() - 1; i++) {
+        //     const auto& p1 = input[i];
+        //     const auto& p2 = input[i + 1];
             
-            // 计算两点间距离
-            float dx = p2.x - p1.x;
-            float dy = p2.y - p1.y;
-            float distance = std::sqrt(dx*dx + dy*dy);
+        //     // 计算两点间距离
+        //     float dx = p2.x - p1.x;
+        //     float dy = p2.y - p1.y;
+        //     float distance = std::sqrt(dx*dx + dy*dy);
             
-            // 计算需要插入的点数
-            int steps = std::ceil(distance / step);
+        //     // 计算需要插入的点数
+        //     int steps = std::ceil(distance / step);
             
-            // 插值
-            for (int j = 0; j <= steps; j++) {
-                float t = static_cast<float>(j) / steps;
-                Command cmd(p1.type, p1.x + dx * t, p1.y + dy * t);
-                result.push_back(cmd);
-            }
-        }
+        //     // 插值
+        //     for (int j = 0; j <= steps; j++) {
+        //         float t = static_cast<float>(j) / steps;
+        //         Command cmd(p1.type, p1.x + dx * t, p1.y + dy * t);
+        //         result.push_back(cmd);
+        //     }
+        // }
         
-        // 确保添加最后一个点
-        if (!input.empty()) {
-            result.push_back(input.back());
-        }
+        // // 确保添加最后一个点
+        // if (!input.empty()) {
+        //     result.push_back(input.back());
+        // }
         
-        return result;
+        //return result;
     }
 
     // 检查是否是拐角
