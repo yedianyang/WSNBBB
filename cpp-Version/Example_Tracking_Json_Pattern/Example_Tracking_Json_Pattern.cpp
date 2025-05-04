@@ -80,6 +80,9 @@ void moveMotor(INode &theNode, int position)
 
 void inklingDataThread(WacomInkling &inkling)
 {
+	// 创建Kalman滤波器实例，采样周期设为1ms (0.001s)
+	KalmanFilter2D kalman(0.001);
+	
 	while (inklingRunning)
 	{
 		auto loop_start = std::chrono::high_resolution_clock::now();
@@ -87,11 +90,25 @@ void inklingDataThread(WacomInkling &inkling)
 		InklingData data;
 		if (inkling.getData(data))
 		{
-			// Store latest data
-			latestInklingState.store(InklingState{data.x, data.y, data.pressed,
-												  std::chrono::duration_cast<std::chrono::microseconds>(
-													  std::chrono::high_resolution_clock::now() - loop_start)
-													  .count()});
+			// 将原始数据传入Kalman滤波器
+			std::array<double, 2> measured_pos = {static_cast<double>(data.x), 
+													static_cast<double>(data.y)};
+			
+			// 执行Kalman滤波，获取滤波后的完整状态
+			std::array<double, 6> filtered_state = kalman.step(measured_pos);
+			
+			// 存储滤波后的数据
+			// filtered_state[0]和[1]是滤波后的位置
+			// filtered_state[2]和[3]是估计的速度
+			// filtered_state[4]和[5]是估计的加速度
+			latestInklingState.store(InklingState{
+				static_cast<int>(filtered_state[0]),  // 滤波后的x
+				static_cast<int>(filtered_state[1]),  // 滤波后的y
+				data.pressed,  // 压力状态保持不变
+				std::chrono::duration_cast<std::chrono::microseconds>(
+					std::chrono::high_resolution_clock::now() - loop_start
+				).count()
+			});
 		}
 		std::this_thread::sleep_for(std::chrono::milliseconds(1));
 	}
@@ -157,7 +174,7 @@ void motorControlThreadX(IPort &myPort)
 
 		motorGoToPositionX = (currentInklingX - tarXPosition) * 386 / 45 + curMotorXPosition;
 
-		motorGoToPositionX = adaptiveLowPassFilter(curMotorXPosition, motorGoToPositionX, 0.7f);
+		//motorGoToPositionX = adaptiveLowPassFilter(curMotorXPosition, motorGoToPositionX, 0.7f);
 
 		if (motorGoToPositionX >= 0 && motorGoToPositionX <= 46000)
 		{
@@ -202,7 +219,7 @@ void motorControlThreadY(IPort &myPort)
 
 		motorGoToPositionY = (currentInklingY - tarYPosition) * 58 / 9 + curMotorYPosition;
 
-		motorGoToPositionY = adaptiveLowPassFilter(curMotorYPosition, motorGoToPositionY, 0.7f); // Filter change to Kalman later
+		//motorGoToPositionY = adaptiveLowPassFilter(curMotorYPosition, motorGoToPositionY, 0.7f); // Filter change to Kalman later
 
 		// printf("motorGoToPositionY: %d\n", motorGoToPositionY);
 
