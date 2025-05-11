@@ -62,18 +62,19 @@ void clearScreen()
 // sequential repeated moves on each axis.
 //*********************************************************************************
 
-#define ACC_LIM_RPM_PER_SEC 5000
-#define VEL_LIM_RPM 800
+#define ACC_LIM_RPM_PER_SEC 3000
+#define VEL_LIM_RPM 600
 #define TIME_TILL_TIMEOUT 10000 // The timeout used for homing(ms)
+#define LASTED_COMMAND_INDEX 0
 
-void moveMotor(INode &theNode, int position)
+void moveMotor(INode &theNode, int position, int vel_limit_rpm, int acc_limit_rpm_per_sec)
 {
 	// 这里的锁没有实际作用，因为moveMotor函数内部没有共享资源需要保护
 
 	theNode.AccUnit(INode::RPM_PER_SEC);
 	theNode.VelUnit(INode::RPM);
-	theNode.Motion.AccLimit = ACC_LIM_RPM_PER_SEC;
-	theNode.Motion.VelLimit = VEL_LIM_RPM;
+	theNode.Motion.AccLimit = acc_limit_rpm_per_sec;
+	theNode.Motion.VelLimit = vel_limit_rpm;
 
 	theNode.Motion.MovePosnStart(position, true);
 }
@@ -114,8 +115,8 @@ void inklingDataThread(WacomInkling &inkling)
 			// 	data.pressed,  // 压力状态保持不变
 
 			latestInklingState.store(InklingState{
-				adaptiveLowPassFilter(latestInklingState.load().x, data.x, 0.5f),
-				adaptiveLowPassFilter(latestInklingState.load().y, data.y, 0.5f),
+				adaptiveLowPassFilter(latestInklingState.load().x, data.x, 0.7f),
+				adaptiveLowPassFilter(latestInklingState.load().y, data.y, 0.7f),
 				data.pressed,
 				std::chrono::duration_cast<std::chrono::microseconds>(
 					std::chrono::high_resolution_clock::now() - loop_start
@@ -177,7 +178,7 @@ void motorControlThreadX(IPort &myPort)
 	 * @param myPort 电机控制端口接口的引用
 	 */
 	int motorGoToPositionX = 23000;
-
+	
 	while (inklingRunning)
 	{
 		auto start_time = std::chrono::high_resolution_clock::now();
@@ -194,7 +195,7 @@ void motorControlThreadX(IPort &myPort)
 		if (motorGoToPositionX >= 0 && motorGoToPositionX <= 46000)
 		{
 			// if(motorPositionX >= 0 && motorPositionX <= 45000) {
-			moveMotor(myPort.Nodes(0), motorGoToPositionX);
+			moveMotor(myPort.Nodes(0), motorGoToPositionX, VEL_LIM_RPM, ACC_LIM_RPM_PER_SEC);
 			//}
 		}
 		std::this_thread::sleep_for(std::chrono::milliseconds(1));
@@ -206,7 +207,7 @@ void motorControlThreadX(IPort &myPort)
 	}
 
 	std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-	moveMotor(myPort.Nodes(0), 23000);
+	moveMotor(myPort.Nodes(0), 23000, 150, ACC_LIM_RPM_PER_SEC);
 }
 
 void motorControlThreadY(IPort &myPort)
@@ -241,7 +242,7 @@ void motorControlThreadY(IPort &myPort)
 		if (motorGoToPositionY >= 0 && motorGoToPositionY <= 45000)
 		{
 			// if(motorPositionY >= 0 && motorPositionY <= 45000) {
-			moveMotor(myPort.Nodes(1), motorGoToPositionY);
+			moveMotor(myPort.Nodes(1), motorGoToPositionY, VEL_LIM_RPM, ACC_LIM_RPM_PER_SEC);
 			//}
 		}
 
@@ -254,7 +255,7 @@ void motorControlThreadY(IPort &myPort)
 	}
 
 	std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-	moveMotor(myPort.Nodes(1), 23000);
+	moveMotor(myPort.Nodes(1), 23000, 150, ACC_LIM_RPM_PER_SEC);
 }
 
 void motorPositionDataThread(IPort &myPort)
@@ -287,7 +288,7 @@ void inklingTargetPositionDataThread(std::vector<Command> &commands)
 {
 	// 可靠版本
 
-	for (size_t i = 0; i < commands.size() && inklingRunning; i++)
+	for (size_t i = LASTED_COMMAND_INDEX; i < commands.size() && inklingRunning; i++)
 	{
 		const auto &command = commands[i];
 		if (command.type == Command::Type::MOVE || command.type == Command::Type::PEN_DOWN)
@@ -361,9 +362,9 @@ void inklingTargetPositionDataThread(std::vector<Command> &commands)
 	// 	//std::this_thread::sleep_for(std::chrono::milliseconds(10));
 	// }
 
-	// 移动回初始位置
-	targetXposition.store(23000);
-	targetYposition.store(23000);
+	// 移动回初始位置 -- 测试用
+	// targetXposition.store(960);
+	// targetYposition.store(960);
 	std::this_thread::sleep_for(std::chrono::seconds(2));
 
 	std::cout << "All commands processed" << std::endl;
@@ -509,7 +510,8 @@ int main(int argc, char *argv[])
 					printf("Node[%d] has not had homing setup through ClearView.  The node will not be homed.\n", iNode);
 				}
 			}
-
+			moveMotor(myPort.Nodes(0), 23000, 150, ACC_LIM_RPM_PER_SEC);
+			moveMotor(myPort.Nodes(1), 23000, 150, ACC_LIM_RPM_PER_SEC);
 			///////////////////////////////////////////////////////////////////////////////////////
 			// At this point we will execute moves based on user input
 			//////////////////////////////////////////////////////////////////////////////////////
@@ -536,7 +538,13 @@ int main(int argc, char *argv[])
 
 			// 读取json文件
 
-			std::string jsonFilePath = "../Artpart/Test-Cactus-Pattern.json";
+			std::string jsonFilePath;
+			if (argc > 1) {
+				jsonFilePath = argv[1];
+			} else {
+				printf("Usage: %s <json_file_path>\n", argv[0]);
+				return -1;
+			}
 			Json2Route json2Route; // 先创建对象
 			if (!json2Route.loadFromFile(jsonFilePath))
 			{ // 然后加载文件
@@ -564,7 +572,7 @@ int main(int argc, char *argv[])
 			std::thread motorPositionThread(motorPositionDataThread, std::ref(myPort));
 			std::thread motorThreadX(motorControlThreadX, std::ref(myPort));
 			std::thread motorThreadY(motorControlThreadY, std::ref(myPort));
-			// std::thread displayThread(displayDataThread);
+			std::thread displayThread(displayDataThread);
 
 			// Main loop
 			while (true)
@@ -592,7 +600,7 @@ int main(int argc, char *argv[])
 			motorPositionThread.join();
 			motorThreadX.join();
 			motorThreadY.join();
-			// displayThread.join();
+			displayThread.join();
 			//----------------------------------------------------------------------------------------------------------
 			// Release USB device before exiting
 			inkling.stop();
